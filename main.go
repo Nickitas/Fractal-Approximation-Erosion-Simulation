@@ -9,28 +9,17 @@ type Point struct {
 	X, Y float64
 }
 
+func (p Point) Distance(to Point) float64 {
+	dx := p.X - to.X
+	dy := p.Y - to.X
+
+	return math.Sqrt(dx*dx + dy*dy)
+}
+
 func main() {
-	var p1x, p1y, p2x, p2y float64
+	p1 := Point{0, 0}
+	p2 := Point{1000, 0}
 
-	fmt.Println("Укажите координаты точек")
-	fmt.Print("x1: ")
-	fmt.Scan(&p1x)
-
-	fmt.Print("y1: ")
-	fmt.Scan(&p1y)
-
-	fmt.Print("x2: ")
-	fmt.Scan(&p2x)
-
-	fmt.Print("y2: ")
-	fmt.Scan(&p2x)
-
-	p1 := Point{p1x, p1y}
-	p2 := Point{p2x, p2y}
-
-	dx := p1.X - p2.X
-	dy := p1.Y - p2.Y
-
-	d := math.Sqrt(dx*dx + dy*dy)
-	fmt.Println(`Эвклидово расстояние между точками:`, d)
+	length := p1.Distance(p2)
+	fmt.Printf("Длина береговой линии: %.2f км\n", length)
 }
