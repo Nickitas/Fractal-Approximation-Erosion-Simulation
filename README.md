@@ -148,7 +148,7 @@ go build -o fraes main.go
 
 ```bibtex
 @software{fraes2025,
-  author = {Никита [Фамилия]},
+  author = {NeDatsky},
   title = {FRAES — Fractal Approximation & Erosion Simulation of Coastal Systems},
   year = {2025},
   publisher = {GitHub},
