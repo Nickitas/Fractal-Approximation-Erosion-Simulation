@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#0f172a"/>
+  <g transform="translate(80,80)"><path d="M208.00,0.00 L342.10,134.31 L464.76,179.85 L421.33,217.23 L769.52,225.40 L895.24,324.67 L892.95,338.69 L1034.67,523.21 L1040.00,505.69 L1038.48,564.09 L1033.90,575.77 L934.86,637.66 L887.62,640.00 L260.57,607.30 L0.00,406.42" stroke="#60a5fa" stroke-width="2.0" fill="none"/><text x="200" y="40" fill="white" font-size="32" font-weight="bold">Кривая Коха — итерация 0</text><text x="200" y="80" fill="#94a3b8" font-size="20">Точек: 15 | Длина: 2439 км | D ≈ —</text></g></svg>
