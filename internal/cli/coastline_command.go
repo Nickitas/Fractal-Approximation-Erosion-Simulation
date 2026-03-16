@@ -1,0 +1,11 @@
+package cli
+
+import "coastal-geometry/internal/domain/coastline"
+
+func runCoastlineCommand(app *App) error {
+	sanity := coastline.MainCalculation(app.Base, app.Config.InputPath)
+	if sanity.Checked && !sanity.Valid {
+		printInvalidResult()
+	}
+	return writeCoastlineSVG(app.Base, app.Config.OutputPath, "coastline.svg", app.Config.Command)
+}

@@ -1,0 +1,124 @@
+package koch
+
+import (
+	"coastal-geometry/internal/domain/geometry"
+	"fmt"
+	"math"
+	"math/rand"
+	"strings"
+)
+
+type OrganicOptions struct {
+	Seed            int64
+	AngleJitterDeg  float64
+	HeightJitterPct float64
+}
+
+func OrganicKochCurve(base []geometry.LatLon, iterations int, opts OrganicOptions) []geometry.LatLon {
+	if iterations < 0 {
+		iterations = 0
+	}
+	if iterations > MaxIterations {
+		fmt.Printf("Предупреждение: слишком много итераций (%d). Ограничено до %d\n", iterations, MaxIterations)
+		iterations = MaxIterations
+	}
+
+	result := make([]geometry.LatLon, len(base))
+	copy(result, base)
+
+	if iterations == 0 {
+		return result
+	}
+
+	rng := rand.New(rand.NewSource(opts.Seed))
+	for i := 0; i < iterations; i++ {
+		result = organicKochIteration(result, rng, opts)
+	}
+	return result
+}
+
+func organicKochIteration(points []geometry.LatLon, rng *rand.Rand, opts OrganicOptions) []geometry.LatLon {
+	if len(points) < 2 {
+		return points
+	}
+
+	newPoints := make([]geometry.LatLon, 0, len(points)*4)
+	for i := 0; i < len(points)-1; i++ {
+		segment := organicKochSegment(points[i], points[i+1], rng, opts)
+		newPoints = append(newPoints, segment...)
+	}
+	newPoints = append(newPoints, points[len(points)-1])
+	return newPoints
+}
+
+func organicKochSegment(a, b geometry.LatLon, rng *rand.Rand, opts OrganicOptions) []geometry.LatLon {
+	vx := b.Lon - a.Lon
+	vy := b.Lat - a.Lat
+
+	thirdX := vx / 3.0
+	thirdY := vy / 3.0
+
+	p1 := geometry.LatLon{Lat: a.Lat + thirdY, Lon: a.Lon + thirdX}
+	p3 := geometry.LatLon{Lat: a.Lat + 2*thirdY, Lon: a.Lon + 2*thirdX}
+
+	angle := (60.0 + randomSigned(rng, opts.AngleJitterDeg)) * math.Pi / 180.0
+	heightScale := 1.0 + randomSigned(rng, opts.HeightJitterPct)
+
+	dx := thirdX
+	dy := thirdY
+	rotX := dx*math.Cos(angle) - dy*math.Sin(angle)
+	rotY := dx*math.Sin(angle) + dy*math.Cos(angle)
+
+	p2 := geometry.LatLon{
+		Lat: p1.Lat + rotY*heightScale,
+		Lon: p1.Lon + rotX*heightScale,
+	}
+
+	return []geometry.LatLon{a, p1, p2, p3}
+}
+
+func randomSigned(rng *rand.Rand, amplitude float64) float64 {
+	if amplitude <= 0 {
+		return 0
+	}
+	return (rng.Float64()*2 - 1) * amplitude
+}
+
+func DemonstrateOrganic(base []geometry.LatLon, maxIterations int, opts OrganicOptions) {
+	baseLength := geometry.PolylineLength(base)
+
+	fmt.Println(strings.Repeat("═", 80))
+	fmt.Println("\tОРГАНИЧЕСКАЯ ФРАКТАЛЬНАЯ БЕРЕГОВАЯ ЛИНИЯ — KOCH ORGANIC")
+	fmt.Println(strings.Repeat("═", 90))
+
+	fmt.Printf("Исходная полилиния: %d точек, длина = %.0f км\n", len(base), baseLength)
+	fmt.Printf("Seed=%d, angle jitter=±%.1f°, height jitter=±%.0f%%\n\n",
+		opts.Seed, opts.AngleJitterDeg, opts.HeightJitterPct*100)
+
+	fmt.Printf("%-5s %-10s %-15s %-15s %-12s\n", "Итер.", "Точек", "Длина, км", "Прирост", "× от исходной")
+	fmt.Println(strings.Repeat("─", 80))
+
+	prevLength := baseLength
+	for iter := 0; iter <= maxIterations; iter++ {
+		curve := OrganicKochCurve(base, iter, opts)
+		length := geometry.PolylineLength(curve)
+		pointsCount := len(curve)
+
+		growth := ""
+		multiplier := ""
+		if iter > 0 {
+			growth = fmt.Sprintf("+%.0f км", length-prevLength)
+			multiplier = fmt.Sprintf("%.3f×", length/baseLength)
+		} else {
+			multiplier = "1.000×"
+		}
+
+		fmt.Printf("%-5d %-10d %-15.0f %-15s %-12s\n",
+			iter, pointsCount, length, growth, multiplier)
+
+		prevLength = length
+	}
+
+	fmt.Println(strings.Repeat("─", 80))
+	fmt.Println("Organic Koch нарушает идеальную самоподобность, поэтому выглядит ближе к природной береговой линии.")
+}
