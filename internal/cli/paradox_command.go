@@ -1,8 +1,8 @@
 package cli
 
-import "coastal-geometry/paradox"
+import "coastal-geometry/internal/domain/simulations/paradox"
 
-func runParadoxCommand(_ *App) error {
-	paradox.Demonstrate()
+func runParadoxCommand(app *App) error {
+	paradox.Demonstrate(app.Base, app.Config.Iterations)
 	return nil
 }

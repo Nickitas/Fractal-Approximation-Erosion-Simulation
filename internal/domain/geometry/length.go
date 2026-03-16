@@ -1,6 +1,5 @@
-package coastline
+package geometry
 
-// Длина полилинии (км)
 func PolylineLength(points []LatLon) float64 {
 	if len(points) < 2 {
 		return 0

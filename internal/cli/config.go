@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"coastal-geometry/coastline"
-	"coastal-geometry/koch"
+	"coastal-geometry/internal/domain/coastline"
+	"coastal-geometry/internal/domain/generators/koch"
 	"flag"
 	"fmt"
 	"io"
@@ -15,14 +15,18 @@ const (
 	cmdCoastline     = "coastline"
 	cmdParadox       = "paradox"
 	cmdKoch          = "koch"
+	cmdKochOrganic   = "koch-organic"
 	cmdDimension     = "dimension"
 )
 
 type config struct {
-	Command    string
-	InputPath  string
-	OutputPath string
-	Iterations int
+	Command      string
+	InputPath    string
+	OutputPath   string
+	Iterations   int
+	Seed         int64
+	AngleJitter  float64
+	HeightJitter float64
 }
 
 func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
@@ -36,7 +40,7 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 	case "-h", "--help", "help":
 		printRootUsage(stdout)
 		return config{}, flag.ErrHelp
-	case cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdDimension:
+	case cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
 	default:
 		printRootUsage(stderr)
 		return config{}, fmt.Errorf("unknown command %q", command)
@@ -50,23 +54,39 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 	case cmdAll:
 		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
-		fs.IntVar(&cfg.Iterations, "iterations", koch.MaxIterations, fmt.Sprintf("maximum Koch iterations (0-%d)", koch.MaxIterations))
+		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum organic Koch iterations (0-%d)", koch.MaxIterations))
+		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")
+		fs.Float64Var(&cfg.AngleJitter, "angle-jitter", 18, "maximum random angle deviation in degrees")
+		fs.Float64Var(&cfg.HeightJitter, "height-jitter", 0.25, "maximum random height deviation as a ratio")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdCoastline:
 		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output SVG path or directory (default: ./output)")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdParadox:
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.IntVar(&cfg.Iterations, "iterations", 4, fmt.Sprintf("maximum paradox detail levels (0-%d)", koch.MaxIterations))
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdKoch:
 		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
-		fs.IntVar(&cfg.Iterations, "iterations", koch.MaxIterations, fmt.Sprintf("maximum Koch iterations (0-%d)", koch.MaxIterations))
+		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum Koch iterations (0-%d)", koch.MaxIterations))
+		fs.Usage = func() { printCommandUsage(stdout, command) }
+	case cmdKochOrganic:
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
+		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum organic Koch iterations (0-%d)", koch.MaxIterations))
+		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")
+		fs.Float64Var(&cfg.AngleJitter, "angle-jitter", 18, "maximum random angle deviation in degrees")
+		fs.Float64Var(&cfg.HeightJitter, "height-jitter", 0.25, "maximum random height deviation as a ratio")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdDimension:
 		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
-		fs.IntVar(&cfg.Iterations, "iterations", koch.MaxIterations, fmt.Sprintf("maximum Koch iterations (0-%d)", koch.MaxIterations))
+		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum organic Koch iterations (0-%d)", koch.MaxIterations))
+		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")
+		fs.Float64Var(&cfg.AngleJitter, "angle-jitter", 18, "maximum random angle deviation in degrees")
+		fs.Float64Var(&cfg.HeightJitter, "height-jitter", 0.25, "maximum random height deviation as a ratio")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	}
 
@@ -85,13 +105,21 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 	if commandUsesIterations(command) && (cfg.Iterations < 0 || cfg.Iterations > koch.MaxIterations) {
 		return config{}, fmt.Errorf("iterations must be between 0 and %d", koch.MaxIterations)
 	}
+	if command == cmdAll || command == cmdKochOrganic || command == cmdDimension {
+		if cfg.AngleJitter < 0 {
+			return config{}, fmt.Errorf("angle-jitter must be non-negative")
+		}
+		if cfg.HeightJitter < 0 {
+			return config{}, fmt.Errorf("height-jitter must be non-negative")
+		}
+	}
 
 	return cfg, nil
 }
 
 func commandNeedsCoastline(command string) bool {
 	switch command {
-	case cmdAll, cmdCoastline, cmdKoch, cmdDimension:
+	case cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
 		return true
 	default:
 		return false
@@ -100,7 +128,7 @@ func commandNeedsCoastline(command string) bool {
 
 func commandUsesIterations(command string) bool {
 	switch command {
-	case cmdAll, cmdKoch, cmdDimension:
+	case cmdAll, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
 		return true
 	default:
 		return false

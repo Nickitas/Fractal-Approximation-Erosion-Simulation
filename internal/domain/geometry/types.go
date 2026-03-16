@@ -1,4 +1,4 @@
-package coastline
+package geometry
 
 type LatLon struct {
 	Lat float64 `json:"lat"`

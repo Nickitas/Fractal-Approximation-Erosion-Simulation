@@ -10,6 +10,8 @@ func executeCommand(app *App) error {
 		return runParadoxCommand(app)
 	case cmdKoch:
 		return runKochCommand(app)
+	case cmdKochOrganic:
+		return runKochOrganicCommand(app)
 	case cmdDimension:
 		return runDimensionCommand(app)
 	default:

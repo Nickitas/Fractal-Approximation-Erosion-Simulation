@@ -1,4 +1,4 @@
-package coastline
+package geometry
 
 import "math"
 
