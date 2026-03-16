@@ -1,21 +1,40 @@
 package coastline
 
-func LoadCoastlineData() []LatLon {
-	return []LatLon{
-		{46.48, 30.73}, // Одесса, Украина
-		{45.33, 32.49}, // Евпатория, Крым
-		{44.94, 34.10}, // Алушта
-		{44.62, 33.53}, // Севастополь
-		{44.55, 38.10}, // Геленджик, Россия
-		{43.70, 39.75}, // Сочи
-		{43.58, 39.72}, // Адлер
-		{42.00, 41.58}, // Сухум, Абхазия/Грузия
-		{42.15, 41.65}, // Поти, Грузия
-		{41.65, 41.63}, // Батуми, Грузия
-		{41.55, 41.57}, // Чорух (граница Грузия/Турция)
-		{41.02, 40.27}, // Трабзон, Турция
-		{41.00, 39.65}, // Орду
-		{41.28, 31.42}, // Синоп (запад Турции)
-		{43.00, 28.00}, // Варна, Болгария (для "замыкания" через север, опционально)
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
+
+const DefaultCoastlineJSONPath = "data/black-sea.json"
+
+func LoadCoastlineData() ([]LatLon, error) {
+	return LoadFromJSON(DefaultCoastlineJSONPath)
+}
+
+func LoadFromJSON(filename string) ([]LatLon, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("read coastline json %q: %w", filename, err)
 	}
+
+	var points []LatLon
+	if err := json.Unmarshal(data, &points); err != nil {
+		return nil, fmt.Errorf("parse coastline json %q: %w", filename, err)
+	}
+
+	if len(points) < 2 {
+		return nil, fmt.Errorf("coastline json %q must contain at least 2 points", filename)
+	}
+
+	for i, point := range points {
+		if point.Lat < -90 || point.Lat > 90 {
+			return nil, fmt.Errorf("coastline json %q has invalid latitude at index %d: %f", filename, i, point.Lat)
+		}
+		if point.Lon < -180 || point.Lon > 180 {
+			return nil, fmt.Errorf("coastline json %q has invalid longitude at index %d: %f", filename, i, point.Lon)
+		}
+	}
+
+	return points, nil
 }

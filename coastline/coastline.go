@@ -6,8 +6,11 @@ import (
 	"strings"
 )
 
-func MainCalculation() {
-	coast := LoadCoastlineData()
+func MainCalculation() error {
+	coast, err := LoadCoastlineData()
+	if err != nil {
+		return err
+	}
 
 	// Сортировка по долготе слева направо (с запада на восток, потом обратно)
 	sort.Slice(coast, func(i, j int) bool {
@@ -43,4 +46,5 @@ func MainCalculation() {
 	fmt.Println(strings.Repeat("═", 80))
 	fmt.Printf("Итого: %.0f км — соответствует реальным оценкам (4000–4500 км)\n", totalLength)
 	fmt.Printf("Чем детальнее измеряем — тем длиннее берег (парадокс береговой линии)\n")
+	return nil
 }

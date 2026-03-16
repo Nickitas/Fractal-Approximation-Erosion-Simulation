@@ -7,19 +7,29 @@ import (
 	"coastal-geometry/paradox"
 	"fmt"
 	"math"
+	"os"
 	"strings"
 )
 
 func main() {
-	coastline.MainCalculation()
+	if err := coastline.MainCalculation(); err != nil {
+		exitWithError(err)
+	}
 	paradox.Demonstrate()
-	koch.Demonstrate()
+	if err := koch.Demonstrate(); err != nil {
+		exitWithError(err)
+	}
 
-	demonstrateKochWithDimension()
+	if err := demonstrateKochWithDimension(); err != nil {
+		exitWithError(err)
+	}
 }
 
-func demonstrateKochWithDimension() {
-	base := coastline.LoadCoastlineData()
+func demonstrateKochWithDimension() error {
+	base, err := coastline.LoadCoastlineData()
+	if err != nil {
+		return err
+	}
 	// baseLength := coastline.PolylineLength()(base)
 
 	fmt.Println(strings.Repeat("=", 80))
@@ -49,4 +59,10 @@ func demonstrateKochWithDimension() {
 	fmt.Println(strings.Repeat("─", 80))
 	fmt.Println("Чем выше итерация — тем точнее оценка размерности → 1.26186")
 	fmt.Println("Это доказывает: наша кривая Коха — настоящий фрактал!\t")
+	return nil
+}
+
+func exitWithError(err error) {
+	fmt.Fprintf(os.Stderr, "error: %v\n", err)
+	os.Exit(1)
 }
