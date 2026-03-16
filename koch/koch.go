@@ -88,11 +88,7 @@ func kochSegment(a, b coastline.LatLon) []coastline.LatLon {
 	return []coastline.LatLon{a, p1, p2, p3}
 }
 
-func Demonstrate() error {
-	base, err := coastline.LoadCoastlineData()
-	if err != nil {
-		return err
-	}
+func Demonstrate(base []coastline.LatLon, maxIterations int) {
 	baseLength := coastline.PolylineLength(base)
 
 	fmt.Println(strings.Repeat("═", 80))
@@ -107,7 +103,7 @@ func Demonstrate() error {
 	prevLength := baseLength
 	// prevPoints := len(base)
 
-	for iter := 0; iter <= MaxIterations; iter++ {
+	for iter := 0; iter <= maxIterations; iter++ {
 		curve := KochCurve(base, iter)
 		length := coastline.PolylineLength(curve)
 		pointsCount := len(curve)
@@ -134,5 +130,4 @@ func Demonstrate() error {
 	fmt.Printf("Математическая формула: Lₙ = L₀ × (4/3)ⁿ\n")
 	fmt.Printf("Фрактальная размерность D = log(4)/log(3) ≈ %.5f\n", math.Log(4)/math.Log(3))
 	fmt.Printf("При n→∞ длина → ∞, но кривая остаётся в ограниченной области\n")
-	return nil
 }
