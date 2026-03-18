@@ -8,10 +8,13 @@ import (
 type App struct {
 	Config           config
 	Base             []geometry.LatLon
+	RenderBase       []geometry.LatLon
+	ModelBase        []geometry.LatLon
 	Validation       coastline.ValidationReport
 	DataSource       string
 	Dataset          string
 	LoadNotes        []string
+	ProcessNotes     []string
 	SourceInspection *coastline.SourceInspection
 }
 
@@ -49,6 +52,11 @@ func NewApp(cfg config) (*App, error) {
 		app.DataSource = result.Source
 		app.Dataset = result.DatasetName
 		app.LoadNotes = result.LoadWarnings
+
+		views := prepareGeometryViews(app.Base, cfg.Command, cfg.Iterations)
+		app.RenderBase = views.RenderBase
+		app.ModelBase = views.ModelBase
+		app.ProcessNotes = views.ProcessInfo
 	}
 
 	return app, nil

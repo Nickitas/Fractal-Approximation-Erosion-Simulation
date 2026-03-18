@@ -23,6 +23,7 @@ func Run(args []string, stdout, stderr io.Writer) {
 
 	printLoadNotes(stdout, app)
 	printCommandUX(stdout, app.Config.Command)
+	printProcessNotes(stdout, app)
 	printValidationReport(stdout, app.Validation)
 
 	if err := executeCommand(app); err != nil {
@@ -57,6 +58,16 @@ func printLoadNotes(w io.Writer, app *App) {
 	fmt.Fprintf(w, "info: %s: %s\n", label, app.DataSource)
 	for _, note := range app.LoadNotes {
 		fmt.Fprintf(w, "warning: %s\n", note)
+	}
+}
+
+func printProcessNotes(w io.Writer, app *App) {
+	if app == nil {
+		return
+	}
+
+	for _, note := range app.ProcessNotes {
+		fmt.Fprintf(w, "info: %s\n", note)
 	}
 }
 

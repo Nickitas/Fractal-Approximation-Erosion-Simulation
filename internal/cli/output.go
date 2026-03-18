@@ -10,19 +10,23 @@ import (
 	"strings"
 )
 
-func writeCoastlineSVG(points []geometry.LatLon, output, defaultName, command string) error {
+func writeCoastlineSVG(points, renderPoints []geometry.LatLon, output, defaultName, command string) error {
 	filename, err := resolveOutputPath(output, defaultName, command)
 	if err != nil {
 		return err
 	}
 
+	if len(renderPoints) == 0 {
+		renderPoints = points
+	}
+
 	if err := svgrender.DrawDocument(svgrender.Document{
 		Title:    "Береговая линия",
-		Subtitle: "Реальные загруженные данные: исходная географическая полилиния",
+		Subtitle: "Реальные загруженные данные: исходная географическая полилиния; SVG использует упрощённую копию для рендера",
 		Layers: []svgrender.Layer{
 			{
 				Label:       "Реальная исходная полилиния",
-				Points:      points,
+				Points:      renderPoints,
 				LengthKM:    geometry.PolylineLength(points),
 				Stroke:      "#1f6f8b",
 				StrokeWidth: 3.5,
@@ -30,8 +34,9 @@ func writeCoastlineSVG(points []geometry.LatLon, output, defaultName, command st
 			},
 		},
 		Meta: []string{
-			fmt.Sprintf("Точек: %d", len(points)),
-			fmt.Sprintf("Сегментов: %d", max(len(points)-1, 0)),
+			fmt.Sprintf("Точек в расчёте: %d", len(points)),
+			fmt.Sprintf("Точек в SVG: %d", len(renderPoints)),
+			fmt.Sprintf("Сегментов в расчёте: %d", max(len(points)-1, 0)),
 		},
 	}, filename); err != nil {
 		return err
@@ -60,23 +65,39 @@ func writeKochLikeSVGSeries(base []geometry.LatLon, iterations int, output, pref
 	}
 
 	curves := make([][]geometry.LatLon, iterations+1)
+	renderCurves := make([][]geometry.LatLon, iterations+1)
 	lengths := make([]float64, iterations+1)
+	maxRawPoints := 0
+	maxRenderPoints := 0
 	for iter := 0; iter <= iterations; iter++ {
 		curves[iter] = builder(base, iter)
+		renderCurves[iter] = simplifyForSeriesSVG(curves[iter]).Points
 		lengths[iter] = geometry.PolylineLength(curves[iter])
+		if len(curves[iter]) > maxRawPoints {
+			maxRawPoints = len(curves[iter])
+		}
+		if len(renderCurves[iter]) > maxRenderPoints {
+			maxRenderPoints = len(renderCurves[iter])
+		}
+	}
+
+	if maxRawPoints > maxRenderPoints {
+		fmt.Printf("info: synthetic SVG simplification: max layer %d -> %d points for rendering\n", maxRawPoints, maxRenderPoints)
 	}
 
 	for iter := 0; iter <= iterations; iter++ {
 		filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d.svg", prefix, iter))
-		layers := makeFractalLayers(curves[:iter+1], lengths[:iter+1])
+		layers := makeFractalLayers(renderCurves[:iter+1], lengths[:iter+1])
 		meta := []string{
 			fmt.Sprintf("Показано итераций: %d", iter+1),
 			fmt.Sprintf("Текущая итерация: %d", iter),
 			fmt.Sprintf("Текущая длина: %.0f км", lengths[iter]),
+			fmt.Sprintf("Точек в расчёте: %d", len(curves[iter])),
+			fmt.Sprintf("Точек в SVG текущего слоя: %d", len(renderCurves[iter])),
 		}
 		if err := svgrender.DrawDocument(svgrender.Document{
 			Title:    fmt.Sprintf("%s — итерация %d", title, iter),
-			Subtitle: "Итерация 0 — реальная базовая полилиния; последующие итерации — синтетическая модель",
+			Subtitle: "Итерация 0 — реальная базовая полилиния; последующие итерации — синтетическая модель; SVG-слои упрощены для рендера",
 			Layers:   layers,
 			Meta:     meta,
 		}, filename); err != nil {

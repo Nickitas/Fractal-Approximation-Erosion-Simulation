@@ -7,8 +7,8 @@ import (
 
 func runKochOrganicCommand(app *App) error {
 	opts := organicKochOptions(app)
-	runKochOrganicMetrics(app.Base, app.Config.Iterations, opts)
-	return writeOrganicKochSVGSeries(app.Base, app.Config.Iterations, app.Config.OutputPath, opts, "koch_iter")
+	runKochOrganicMetrics(app.ModelBase, app.Config.Iterations, opts)
+	return writeOrganicKochSVGSeries(app.ModelBase, app.Config.Iterations, app.Config.OutputPath, opts, "koch_iter")
 }
 
 func runKochOrganicMetrics(base []geometry.LatLon, iterations int, opts koch.OrganicOptions) {
