@@ -18,10 +18,10 @@ func writeCoastlineSVG(points []geometry.LatLon, output, defaultName, command st
 
 	if err := svgrender.DrawDocument(svgrender.Document{
 		Title:    "Береговая линия",
-		Subtitle: "Исходная географическая полилиния",
+		Subtitle: "Реальные загруженные данные: исходная географическая полилиния",
 		Layers: []svgrender.Layer{
 			{
-				Label:       "Исходная полилиния",
+				Label:       "Реальная исходная полилиния",
 				Points:      points,
 				LengthKM:    geometry.PolylineLength(points),
 				Stroke:      "#1f6f8b",
@@ -76,7 +76,7 @@ func writeKochLikeSVGSeries(base []geometry.LatLon, iterations int, output, pref
 		}
 		if err := svgrender.DrawDocument(svgrender.Document{
 			Title:    fmt.Sprintf("%s — итерация %d", title, iter),
-			Subtitle: "На схеме наложены исходная полилиния и все итерации до текущей",
+			Subtitle: "Итерация 0 — реальная базовая полилиния; последующие итерации — синтетическая модель",
 			Layers:   layers,
 			Meta:     meta,
 		}, filename); err != nil {
@@ -108,10 +108,12 @@ func makeFractalLayers(curves [][]geometry.LatLon, lengths []float64) []svgrende
 		}
 		dashArray := ""
 		if i == 0 {
-			label = "Исходная полилиния"
+			label = "Реальная базовая полилиния"
 			strokeWidth = 1.8
 			opacity = 0.9
 			dashArray = "8 6"
+		} else {
+			label = fmt.Sprintf("Синтетическая итерация %d", i)
 		}
 		if i == len(curves)-1 {
 			strokeWidth = 3.6

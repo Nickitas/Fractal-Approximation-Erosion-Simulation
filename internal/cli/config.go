@@ -11,6 +11,8 @@ import (
 
 const (
 	defaultOutputDir = "output"
+	cmdReal          = "real"
+	cmdModel         = "model"
 	cmdAll           = "all"
 	cmdCoastline     = "coastline"
 	cmdParadox       = "paradox"
@@ -36,15 +38,14 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		return config{}, flag.ErrHelp
 	}
 
-	command := args[0]
-	switch command {
-	case "-h", "--help", "help":
+	if isHelpToken(args[0]) {
 		printRootUsage(stdout)
 		return config{}, flag.ErrHelp
-	case cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
-	default:
-		printRootUsage(stderr)
-		return config{}, fmt.Errorf("unknown command %q", command)
+	}
+
+	command, commandArgs, err := resolveCommand(args, stdout, stderr)
+	if err != nil {
+		return config{}, err
 	}
 
 	cfg := config{Command: command}
@@ -97,7 +98,7 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	}
 
-	if err := fs.Parse(args[1:]); err != nil {
+	if err := fs.Parse(commandArgs); err != nil {
 		if err == flag.ErrHelp {
 			return config{}, err
 		}
@@ -144,4 +145,58 @@ func commandUsesIterations(command string) bool {
 
 func isHelp(err error) bool {
 	return err == flag.ErrHelp
+}
+
+func resolveCommand(args []string, stdout, stderr io.Writer) (string, []string, error) {
+	switch args[0] {
+	case cmdReal:
+		return resolveGroupedCommand(cmdReal, args[1:], stdout, stderr)
+	case cmdModel:
+		return resolveGroupedCommand(cmdModel, args[1:], stdout, stderr)
+	case cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
+		return args[0], args[1:], nil
+	default:
+		printRootUsage(stderr)
+		return "", nil, fmt.Errorf("unknown command %q", args[0])
+	}
+}
+
+func resolveGroupedCommand(group string, args []string, stdout, stderr io.Writer) (string, []string, error) {
+	if len(args) == 0 || isHelpToken(args[0]) {
+		printGroupUsage(stdout, group)
+		return "", nil, flag.ErrHelp
+	}
+
+	command := args[0]
+	if !commandBelongsToGroup(command, group) {
+		printGroupUsage(stderr, group)
+		return "", nil, fmt.Errorf("unknown %s command %q", group, command)
+	}
+
+	return command, args[1:], nil
+}
+
+func commandBelongsToGroup(command, group string) bool {
+	switch group {
+	case cmdReal:
+		return command == cmdCoastline
+	case cmdModel:
+		switch command {
+		case cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
+}
+
+func isHelpToken(arg string) bool {
+	switch arg {
+	case "-h", "--help", "help":
+		return true
+	default:
+		return false
+	}
 }

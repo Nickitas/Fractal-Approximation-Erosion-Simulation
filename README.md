@@ -58,12 +58,30 @@
 
 Подкоманды CLI:
 
-- `fraes all` — запускает полный аналитический сценарий: геометрия, длина, масштабный эффект и box-counting
-- `fraes coastline` — проверяет геометрию входных данных, считает метрики береговой линии и сохраняет `coastline.svg`
-- `fraes paradox` — математически корректно показывает рост длины при уменьшении шага измерения и добавлении деталей
-- `fraes koch` — строит классическую кривую Коха, сравнивает измерения с теорией и сохраняет серию `koch_iter_0.svg ... koch_iter_N.svg`
-- `fraes koch-organic` — строит органическую фрактальную аппроксимацию береговой линии
-- `fraes dimension` — считает эмпирическую фрактальную размерность, проверяет сходимость и сохраняет серию SVG
+Каноническая структура CLI:
+
+- `fraes real <command>` — прямые расчёты по реально загруженной береговой линии
+- `fraes model <command>` — синтетические демонстрации и модельные преобразования, построенные от реальной базовой полилинии
+- `fraes all` — смешанный сценарий: сначала реальные метрики, затем модельные этапы
+
+Реальные расчёты:
+
+- `fraes real coastline` — проверяет геометрию входных данных, считает метрики реальной береговой линии и сохраняет `coastline.svg`
+
+Синтетические демонстрации:
+
+- `fraes model paradox` — математически корректно показывает рост длины при уменьшении шага измерения и добавлении деталей; использует реальную линию только как базовую полилинию
+- `fraes model koch` — строит классическую кривую Коха поверх базовой полилинии и сохраняет серию `koch_iter_0.svg ... koch_iter_N.svg`
+- `fraes model koch-organic` — строит органическую фрактальную аппроксимацию поверх базовой полилинии
+- `fraes model dimension` — считает box-counting размерность для синтетических organic-итераций, построенных от базовой полилинии
+
+Смешанный сценарий:
+
+- `fraes all` — сначала считает реальные метрики загруженной береговой линии, затем запускает синтетические демонстрации
+
+Legacy aliases всё ещё поддерживаются для совместимости: `fraes coastline`, `fraes paradox`, `fraes koch`, `fraes koch-organic`, `fraes dimension`.
+
+Важно: `model paradox`, `model koch`, `model koch-organic`, `model dimension` и синтетические этапы `all` не являются прямым измерением реальной береговой линии после итерации `0`. Они используют загруженный контур только как исходную геометрию модели.
 
 Флаги подкоманд:
 
@@ -99,10 +117,10 @@ go run ./cmd/fraes --help
 ./fraes --help
 
 # Базовый запуск
-./fraes coastline
+./fraes real coastline
 
 # Принудительно только локальный fallback
-./fraes coastline --source-url ''
+./fraes real coastline --source-url ''
 ```
 
 ---
@@ -111,21 +129,21 @@ go run ./cmd/fraes --help
 
 ```bash
 # 1. Метрики исходной береговой линии + SVG в ./output/
-./fraes coastline
+./fraes real coastline
 
 # 1a. Явно использовать удалённый GeoJSON-источник
-./fraes coastline --source-url 'https://geo.vliz.be/geoserver/MarineRegions/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=iho&cql_filter=mrgid%3D3319&outputFormat=application%2Fjson'
+./fraes real coastline --source-url 'https://geo.vliz.be/geoserver/MarineRegions/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=iho&cql_filter=mrgid%3D3319&outputFormat=application%2Fjson'
 
-# 2. Organic Koch с 4 итерациями и серией SVG в директории
-./fraes koch --iterations 4 --seed 42 --angle-jitter 18 --height-jitter 0.25 --output ./output/koch
+# 2. Синтетическая демонстрация classic Koch от реальной базовой полилинии
+./fraes model koch --iterations 4 --output ./output/koch
 
-# 3. Alias на тот же organic-режим
-./fraes koch-organic --iterations 4 --seed 42 --angle-jitter 18 --height-jitter 0.25 --output ./output/koch-organic
+# 3. Синтетическая organic-модель от той же базовой полилинии
+./fraes model koch-organic --iterations 4 --seed 42 --angle-jitter 18 --height-jitter 0.25 --output ./output/koch-organic
 
-# 4. Эмпирическая размерность для organic-модели
-./fraes dimension --iterations 6 --seed 42 --angle-jitter 18 --height-jitter 0.25 --input data/black-sea.json
+# 4. Эмпирическая размерность синтетической organic-модели
+./fraes model dimension --iterations 6 --seed 42 --angle-jitter 18 --height-jitter 0.25 --input data/black-sea.json
 
-# 5. Полный текущий прогон со всеми демонстрациями
+# 5. Полный сценарий: сначала реальные метрики, затем демонстрации
 ./fraes all --output ./output/full-run
 ```
 
@@ -134,7 +152,7 @@ go run ./cmd/fraes --help
 После выполнения в каталоге `--output` появятся:
 
 - `coastline.svg` — SVG-отчёт по исходной береговой линии
-- `koch_iter_0.svg ... koch_iter_N.svg` — SVG-отчёты по фрактальным итерациям с длинами и масштабом
+- `koch_iter_0.svg ... koch_iter_N.svg` — SVG-отчёты по синтетическим итерациям; `iter_0` совпадает с реальной базовой полилинией, `iter_1 ... iter_N` являются модельными преобразованиями
 
 Сейчас проект не генерирует `gif`, `csv` или `json`-отчёты. Это следующие этапы из плана разработки.
 

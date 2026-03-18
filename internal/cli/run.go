@@ -22,6 +22,7 @@ func Run(args []string, stdout, stderr io.Writer) {
 	}
 
 	printLoadNotes(stdout, app)
+	printCommandUX(stdout, app.Config.Command)
 	printValidationReport(stdout, app.Validation)
 
 	if err := executeCommand(app); err != nil {
@@ -51,5 +52,18 @@ func printLoadNotes(w io.Writer, app *App) {
 	fmt.Fprintf(w, "info: coastline source: %s\n", app.DataSource)
 	for _, note := range app.LoadNotes {
 		fmt.Fprintf(w, "warning: %s\n", note)
+	}
+}
+
+func printCommandUX(w io.Writer, command string) {
+	ux := getCommandUX(command)
+	if ux.Mode == "" {
+		return
+	}
+
+	fmt.Fprintf(w, "info: canonical command: %s\n", canonicalCommandPath(command))
+	fmt.Fprintf(w, "info: command mode: %s\n", ux.Mode)
+	if ux.RuntimeNote != "" {
+		fmt.Fprintf(w, "info: %s\n", ux.RuntimeNote)
 	}
 }

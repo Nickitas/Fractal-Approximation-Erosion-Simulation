@@ -1,0 +1,32 @@
+package cli
+
+import "testing"
+
+func TestGetCommandUX(t *testing.T) {
+	tests := []struct {
+		command string
+		mode    string
+	}{
+		{command: cmdCoastline, mode: "real-data analysis"},
+		{command: cmdParadox, mode: "synthetic demonstration"},
+		{command: cmdKoch, mode: "synthetic demonstration"},
+		{command: cmdKochOrganic, mode: "synthetic demonstration"},
+		{command: cmdDimension, mode: "synthetic demonstration"},
+		{command: cmdAll, mode: "mixed pipeline"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.command, func(t *testing.T) {
+			ux := getCommandUX(test.command)
+			if ux.Mode != test.mode {
+				t.Fatalf("expected mode %q, got %q", test.mode, ux.Mode)
+			}
+			if ux.Summary == "" {
+				t.Fatalf("expected summary for %q", test.command)
+			}
+			if ux.RuntimeNote == "" {
+				t.Fatalf("expected runtime note for %q", test.command)
+			}
+		})
+	}
+}
