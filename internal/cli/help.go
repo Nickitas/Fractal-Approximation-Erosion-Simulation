@@ -11,7 +11,8 @@ import (
 
 func printRootUsage(w io.Writer) {
 	bin := filepath.Base(os.Args[0])
-	fmt.Fprintf(w, "Usage: %s %s <command> [flags]\n", bin, cmdReal)
+	fmt.Fprintf(w, "Usage: %s %s [flags]\n", bin, cmdSource)
+	fmt.Fprintf(w, "       %s %s <command> [flags]\n", bin, cmdReal)
 	fmt.Fprintf(w, "       %s %s <command> [flags]\n", bin, cmdModel)
 	fmt.Fprintf(w, "       %s %s [flags]\n\n", bin, cmdAll)
 	fmt.Fprintln(w, "Purpose:")
@@ -19,6 +20,8 @@ func printRootUsage(w io.Writer) {
 	fmt.Fprintln(w, "  demonstrate fractal properties mathematically correctly.")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Command Groups:")
+	fmt.Fprintln(w, "  Dataset utilities:")
+	fmt.Fprintf(w, "    %-18s %s\n", canonicalCommandPath(cmdSource), getCommandUX(cmdSource).Summary)
 	fmt.Fprintln(w, "  Real-data analysis:")
 	fmt.Fprintf(w, "    %-18s %s\n", canonicalCommandPath(cmdCoastline), getCommandUX(cmdCoastline).Summary)
 	fmt.Fprintln(w, "  Synthetic demonstrations:")
@@ -37,6 +40,8 @@ func printRootUsage(w io.Writer) {
 	fmt.Fprintf(w, "  %s %s        -> %s %s\n", bin, cmdDimension, bin, canonicalCommandPath(cmdDimension))
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Examples:")
+	fmt.Fprintf(w, "  %s %s\n", bin, canonicalCommandPath(cmdSource))
+	fmt.Fprintf(w, "  %s %s --refresh --output ./data/snapshots\n", bin, canonicalCommandPath(cmdSource))
 	fmt.Fprintf(w, "  %s %s\n", bin, canonicalCommandPath(cmdCoastline))
 	fmt.Fprintf(w, "  %s %s --source-url %s\n", bin, canonicalCommandPath(cmdCoastline), coastline.DefaultCoastlineGeoJSONURL)
 	fmt.Fprintf(w, "  %s %s --iterations 4 --output ./output/koch\n", bin, canonicalCommandPath(cmdKoch))
@@ -44,7 +49,7 @@ func printRootUsage(w io.Writer) {
 	fmt.Fprintf(w, "  %s %s --iterations 6 --input data/black-sea.json\n", bin, canonicalCommandPath(cmdDimension))
 	fmt.Fprintf(w, "  %s all --output ./output/full-run\n", bin)
 	fmt.Fprintln(w, "")
-	fmt.Fprintf(w, "Run '%s %s <command> --help', '%s %s <command> --help', or '%s all --help'.\n", bin, cmdReal, bin, cmdModel, bin)
+	fmt.Fprintf(w, "Run '%s %s --help', '%s %s <command> --help', '%s %s <command> --help', or '%s all --help'.\n", bin, cmdSource, bin, cmdReal, bin, cmdModel, bin)
 }
 
 func printGroupUsage(w io.Writer, group string) {
@@ -95,6 +100,23 @@ func printCommandUsage(w io.Writer, command string) {
 	alias := legacyAlias(command)
 
 	switch command {
+	case cmdSource:
+		fmt.Fprintf(w, "Usage: %s %s [flags]\n\n", bin, usagePath)
+		ux := getCommandUX(command)
+		fmt.Fprintln(w, "Fetches the selected coastline source using the same cache/remote/fallback policy, prints dataset metadata, and saves a raw snapshot locally.")
+		fmt.Fprintln(w, "")
+		fmt.Fprintf(w, "Mode: %s\n", ux.Mode)
+		fmt.Fprintf(w, "Note: %s\n", ux.RuntimeNote)
+		fmt.Fprintln(w, "")
+		fmt.Fprintln(w, "Flags:")
+		fmt.Fprintln(w, "  --input string")
+		fmt.Fprintf(w, "        path to local coastline JSON/GeoJSON fallback file (default %q)\n", coastline.DefaultCoastlineJSONPath)
+		fmt.Fprintln(w, "  --source-url string")
+		fmt.Fprintf(w, "        remote GeoJSON URL for coastline data (default %q; empty string disables HTTP loading)\n", coastline.DefaultCoastlineGeoJSONURL)
+		fmt.Fprintln(w, "  --refresh")
+		fmt.Fprintln(w, "        force refresh of the remote GeoJSON cache before saving a snapshot")
+		fmt.Fprintln(w, "  --output string")
+		fmt.Fprintf(w, "        snapshot file or directory (default: ./%s)\n", coastline.DefaultCoastlineSnapshotDir)
 	case cmdAll:
 		fmt.Fprintf(w, "Usage: %s %s [flags]\n\n", bin, cmdAll)
 		ux := getCommandUX(command)

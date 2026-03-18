@@ -92,80 +92,28 @@ func Load(options LoadOptions) (LoadResult, error) {
 	}
 
 	remoteURL := strings.TrimSpace(options.RemoteURL)
-	if remoteURL == "" {
-		points, report, err := LoadFromJSON(localPath)
-		if err != nil {
-			return LoadResult{}, err
-		}
-		return LoadResult{
-			Points:      points,
-			Validation:  report,
-			Source:      localPath,
-			DatasetName: filepath.Base(localPath),
-		}, nil
-	}
-
 	cachePath := strings.TrimSpace(options.CachePath)
-	if cachePath == "" {
-		cachePath = defaultCoastlineCachePath(remoteURL)
+	payload, err := resolveSourcePayload(localPath, remoteURL, cachePath, options.Refresh, options.HTTPClient)
+	if err != nil {
+		return LoadResult{}, err
 	}
 
-	if !options.Refresh {
-		points, report, err := loadCachedCoastline(cachePath, options.RemoteBounds)
-		if err == nil {
-			return LoadResult{
-				Points:      points,
-				Validation:  report,
-				Source:      cachedSourceLabel(cachePath, remoteURL),
-				DatasetName: filepath.Base(localPath),
-			}, nil
-		}
+	points, report, err := loadCoastlineData(payload.Payload, payload.Source, options.RemoteBounds)
+	if err != nil {
+		return LoadResult{}, err
 	}
 
-	remotePayload, err := fetchCoastlinePayload(options.HTTPClient, remoteURL)
-	if err == nil {
-		points, report, loadErr := loadCoastlineData(remotePayload, remoteURL, options.RemoteBounds)
-		if loadErr == nil {
-			result := LoadResult{
-				Points:      points,
-				Validation:  report,
-				Source:      remoteURL,
-				DatasetName: filepath.Base(localPath),
-			}
-			if cacheErr := writeCoastlineCache(cachePath, remotePayload); cacheErr != nil {
-				result.LoadWarnings = append(result.LoadWarnings, fmt.Sprintf("unable to update coastline cache %q: %v", cachePath, cacheErr))
-			}
-			return result, nil
-		}
-		err = loadErr
-	}
-
-	points, report, cacheErr := loadCachedCoastline(cachePath, options.RemoteBounds)
-	if cacheErr == nil {
-		return LoadResult{
-			Points:      points,
-			Validation:  report,
-			Source:      cachedSourceLabel(cachePath, remoteURL),
-			DatasetName: filepath.Base(localPath),
-			LoadWarnings: []string{
-				fmt.Sprintf("remote source %q unavailable, using cached GeoJSON %q: %v", remoteURL, cachePath, err),
-			},
-		}, nil
-	}
-
-	points, report, fallbackErr := LoadFromJSON(localPath)
-	if fallbackErr != nil {
-		return LoadResult{}, fmt.Errorf("load coastline from remote %q: %v; load cache %q: %v; load fallback %q: %w", remoteURL, err, cachePath, cacheErr, localPath, fallbackErr)
+	datasetName := filepath.Base(localPath)
+	if metadata, metaErr := inspectSourceMetadata(payload.Payload); metaErr == nil {
+		datasetName = datasetNameFromMetadata(metadata, localPath, remoteURL)
 	}
 
 	return LoadResult{
-		Points:      points,
-		Validation:  report,
-		Source:      localPath,
-		DatasetName: filepath.Base(localPath),
-		LoadWarnings: []string{
-			fmt.Sprintf("remote source %q unavailable, using local fallback %q: %v", remoteURL, localPath, err),
-		},
+		Points:       points,
+		Validation:   report,
+		Source:       payload.Source,
+		DatasetName:  datasetName,
+		LoadWarnings: payload.LoadWarnings,
 	}, nil
 }
 

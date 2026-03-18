@@ -6,16 +6,34 @@ import (
 )
 
 type App struct {
-	Config     config
-	Base       []geometry.LatLon
-	Validation coastline.ValidationReport
-	DataSource string
-	Dataset    string
-	LoadNotes  []string
+	Config           config
+	Base             []geometry.LatLon
+	Validation       coastline.ValidationReport
+	DataSource       string
+	Dataset          string
+	LoadNotes        []string
+	SourceInspection *coastline.SourceInspection
 }
 
 func NewApp(cfg config) (*App, error) {
 	app := &App{Config: cfg}
+
+	if cfg.Command == cmdSource {
+		inspection, err := coastline.InspectSource(coastline.InspectOptions{
+			LocalPath:    cfg.InputPath,
+			RemoteURL:    cfg.SourceURL,
+			SnapshotPath: cfg.OutputPath,
+			Refresh:      cfg.Refresh,
+		})
+		if err != nil {
+			return nil, err
+		}
+		app.SourceInspection = &inspection
+		app.DataSource = inspection.Source
+		app.Dataset = inspection.DatasetName
+		app.LoadNotes = inspection.LoadWarnings
+		return app, nil
+	}
 
 	if commandNeedsCoastline(cfg.Command) {
 		result, err := coastline.Load(coastline.LoadOptions{

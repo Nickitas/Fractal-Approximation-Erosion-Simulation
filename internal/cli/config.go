@@ -13,6 +13,7 @@ const (
 	defaultOutputDir = "output"
 	cmdReal          = "real"
 	cmdModel         = "model"
+	cmdSource        = "source"
 	cmdAll           = "all"
 	cmdCoastline     = "coastline"
 	cmdParadox       = "paradox"
@@ -54,6 +55,12 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 	fs.SetOutput(stderr)
 
 	switch command {
+	case cmdSource:
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
+		fs.BoolVar(&cfg.Refresh, "refresh", false, "force refresh of the remote GeoJSON cache before saving a snapshot")
+		fs.StringVar(&cfg.OutputPath, "output", "", "snapshot file or directory (default: ./data/snapshots)")
+		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdAll:
 		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
 		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
@@ -160,7 +167,7 @@ func resolveCommand(args []string, stdout, stderr io.Writer) (string, []string, 
 		return resolveGroupedCommand(cmdReal, args[1:], stdout, stderr)
 	case cmdModel:
 		return resolveGroupedCommand(cmdModel, args[1:], stdout, stderr)
-	case cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
+	case cmdSource, cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
 		return args[0], args[1:], nil
 	default:
 		printRootUsage(stderr)

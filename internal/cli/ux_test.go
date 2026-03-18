@@ -7,6 +7,7 @@ func TestGetCommandUX(t *testing.T) {
 		command string
 		mode    string
 	}{
+		{command: cmdSource, mode: "dataset inspection"},
 		{command: cmdCoastline, mode: "real-data analysis"},
 		{command: cmdParadox, mode: "synthetic demonstration"},
 		{command: cmdKoch, mode: "synthetic demonstration"},

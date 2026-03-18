@@ -21,6 +21,26 @@ func TestParseConfigGroupedRealCommand(t *testing.T) {
 	}
 }
 
+func TestParseConfigSourceCommand(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	cfg, err := parseConfig([]string{cmdSource, "--refresh", "--output", "data/snapshots"}, &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("parseConfig returned error: %v", err)
+	}
+
+	if cfg.Command != cmdSource {
+		t.Fatalf("expected command %q, got %q", cmdSource, cfg.Command)
+	}
+	if !cfg.Refresh {
+		t.Fatal("expected refresh flag to be true")
+	}
+	if cfg.OutputPath != "data/snapshots" {
+		t.Fatalf("expected output path to be preserved, got %q", cfg.OutputPath)
+	}
+}
+
 func TestParseConfigGroupedModelCommand(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

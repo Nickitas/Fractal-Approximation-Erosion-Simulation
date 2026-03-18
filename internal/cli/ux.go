@@ -8,6 +8,8 @@ type commandUX struct {
 
 func canonicalCommandPath(command string) string {
 	switch command {
+	case cmdSource:
+		return cmdSource
 	case cmdCoastline:
 		return cmdReal + " " + cmdCoastline
 	case cmdParadox:
@@ -34,6 +36,12 @@ func legacyAlias(command string) string {
 
 func getCommandUX(command string) commandUX {
 	switch command {
+	case cmdSource:
+		return commandUX{
+			Mode:        "dataset inspection",
+			Summary:     "shows source metadata and saves a raw local snapshot of the selected dataset",
+			RuntimeNote: "the command inspects the raw source payload and writes a snapshot copy without running coastline metrics or synthetic model stages",
+		}
 	case cmdCoastline:
 		return commandUX{
 			Mode:        "real-data analysis",

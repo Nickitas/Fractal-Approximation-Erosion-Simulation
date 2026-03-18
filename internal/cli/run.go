@@ -49,7 +49,12 @@ func printLoadNotes(w io.Writer, app *App) {
 		return
 	}
 
-	fmt.Fprintf(w, "info: coastline source: %s\n", app.DataSource)
+	label := "coastline source"
+	if app.Config.Command == cmdSource {
+		label = "dataset source"
+	}
+
+	fmt.Fprintf(w, "info: %s: %s\n", label, app.DataSource)
 	for _, note := range app.LoadNotes {
 		fmt.Fprintf(w, "warning: %s\n", note)
 	}
