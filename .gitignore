@@ -1,2 +1,5 @@
 output/
 fraes
+.DS_Store
+data/cache/
+data/snapshots/

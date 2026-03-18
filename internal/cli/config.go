@@ -11,6 +11,9 @@ import (
 
 const (
 	defaultOutputDir = "output"
+	cmdReal          = "real"
+	cmdModel         = "model"
+	cmdSource        = "source"
 	cmdAll           = "all"
 	cmdCoastline     = "coastline"
 	cmdParadox       = "paradox"
@@ -22,6 +25,8 @@ const (
 type config struct {
 	Command      string
 	InputPath    string
+	SourceURL    string
+	Refresh      bool
 	OutputPath   string
 	Iterations   int
 	Seed         int64
@@ -35,15 +40,14 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		return config{}, flag.ErrHelp
 	}
 
-	command := args[0]
-	switch command {
-	case "-h", "--help", "help":
+	if isHelpToken(args[0]) {
 		printRootUsage(stdout)
 		return config{}, flag.ErrHelp
-	case cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
-	default:
-		printRootUsage(stderr)
-		return config{}, fmt.Errorf("unknown command %q", command)
+	}
+
+	command, commandArgs, err := resolveCommand(args, stdout, stderr)
+	if err != nil {
+		return config{}, err
 	}
 
 	cfg := config{Command: command}
@@ -51,8 +55,16 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 	fs.SetOutput(stderr)
 
 	switch command {
+	case cmdSource:
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
+		fs.BoolVar(&cfg.Refresh, "refresh", false, "force refresh of the remote GeoJSON cache before saving a snapshot")
+		fs.StringVar(&cfg.OutputPath, "output", "", "snapshot file or directory (default: ./data/snapshots)")
+		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdAll:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
+		fs.BoolVar(&cfg.Refresh, "refresh", false, "force refresh of the remote GeoJSON cache before running")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
 		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum organic Koch iterations (0-%d)", koch.MaxIterations))
 		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")
@@ -60,20 +72,28 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		fs.Float64Var(&cfg.HeightJitter, "height-jitter", 0.25, "maximum random height deviation as a ratio")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdCoastline:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
+		fs.BoolVar(&cfg.Refresh, "refresh", false, "force refresh of the remote GeoJSON cache before running")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output SVG path or directory (default: ./output)")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdParadox:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
+		fs.BoolVar(&cfg.Refresh, "refresh", false, "force refresh of the remote GeoJSON cache before running")
 		fs.IntVar(&cfg.Iterations, "iterations", 4, fmt.Sprintf("maximum paradox detail levels (0-%d)", koch.MaxIterations))
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdKoch:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
+		fs.BoolVar(&cfg.Refresh, "refresh", false, "force refresh of the remote GeoJSON cache before running")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
 		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum Koch iterations (0-%d)", koch.MaxIterations))
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdKochOrganic:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
+		fs.BoolVar(&cfg.Refresh, "refresh", false, "force refresh of the remote GeoJSON cache before running")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
 		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum organic Koch iterations (0-%d)", koch.MaxIterations))
 		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")
@@ -81,7 +101,9 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		fs.Float64Var(&cfg.HeightJitter, "height-jitter", 0.25, "maximum random height deviation as a ratio")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdDimension:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
+		fs.BoolVar(&cfg.Refresh, "refresh", false, "force refresh of the remote GeoJSON cache before running")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
 		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum organic Koch iterations (0-%d)", koch.MaxIterations))
 		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")
@@ -90,7 +112,7 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	}
 
-	if err := fs.Parse(args[1:]); err != nil {
+	if err := fs.Parse(commandArgs); err != nil {
 		if err == flag.ErrHelp {
 			return config{}, err
 		}
@@ -137,4 +159,58 @@ func commandUsesIterations(command string) bool {
 
 func isHelp(err error) bool {
 	return err == flag.ErrHelp
+}
+
+func resolveCommand(args []string, stdout, stderr io.Writer) (string, []string, error) {
+	switch args[0] {
+	case cmdReal:
+		return resolveGroupedCommand(cmdReal, args[1:], stdout, stderr)
+	case cmdModel:
+		return resolveGroupedCommand(cmdModel, args[1:], stdout, stderr)
+	case cmdSource, cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
+		return args[0], args[1:], nil
+	default:
+		printRootUsage(stderr)
+		return "", nil, fmt.Errorf("unknown command %q", args[0])
+	}
+}
+
+func resolveGroupedCommand(group string, args []string, stdout, stderr io.Writer) (string, []string, error) {
+	if len(args) == 0 || isHelpToken(args[0]) {
+		printGroupUsage(stdout, group)
+		return "", nil, flag.ErrHelp
+	}
+
+	command := args[0]
+	if !commandBelongsToGroup(command, group) {
+		printGroupUsage(stderr, group)
+		return "", nil, fmt.Errorf("unknown %s command %q", group, command)
+	}
+
+	return command, args[1:], nil
+}
+
+func commandBelongsToGroup(command, group string) bool {
+	switch group {
+	case cmdReal:
+		return command == cmdCoastline
+	case cmdModel:
+		switch command {
+		case cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
+}
+
+func isHelpToken(arg string) bool {
+	switch arg {
+	case "-h", "--help", "help":
+		return true
+	default:
+		return false
+	}
 }

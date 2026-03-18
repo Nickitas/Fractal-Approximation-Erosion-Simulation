@@ -50,7 +50,7 @@
 - Классическая и органическая фрактальная аппроксимация береговой линии с управляемым числом итераций
 - Расчёт эмпирической фрактальной размерности методом box-counting с проверкой сходимости и стабильности
 - Генерация SVG-отчётов для исходной береговой линии и серии `koch_iter_0.svg ... koch_iter_N.svg`
-- CLI с подкомандами: `all`, `coastline`, `paradox`, `koch`, `koch-organic`, `dimension`
+- CLI с подкомандами: `source`, `all`, `coastline`, `paradox`, `koch`, `koch-organic`, `dimension`
 
 ---
 
@@ -58,23 +58,50 @@
 
 Подкоманды CLI:
 
-- `fraes all` — запускает полный аналитический сценарий: геометрия, длина, масштабный эффект и box-counting
-- `fraes coastline` — проверяет геометрию входных данных, считает метрики береговой линии и сохраняет `coastline.svg`
-- `fraes paradox` — математически корректно показывает рост длины при уменьшении шага измерения и добавлении деталей
-- `fraes koch` — строит классическую кривую Коха, сравнивает измерения с теорией и сохраняет серию `koch_iter_0.svg ... koch_iter_N.svg`
-- `fraes koch-organic` — строит органическую фрактальную аппроксимацию береговой линии
-- `fraes dimension` — считает эмпирическую фрактальную размерность, проверяет сходимость и сохраняет серию SVG
+Каноническая структура CLI:
+
+- `fraes real <command>` — прямые расчёты по реально загруженной береговой линии
+- `fraes model <command>` — синтетические демонстрации и модельные преобразования, построенные от реальной базовой полилинии
+- `fraes source` — проверка источника данных: метаданные набора и сохранение raw snapshot локально
+- `fraes all` — смешанный сценарий: сначала реальные метрики, затем модельные этапы
+
+Утилита источника:
+
+- `fraes source` — показывает метаданные текущего набора, сохраняет snapshot сырого payload в `data/snapshots/` или в путь из `--output`
+
+Реальные расчёты:
+
+- `fraes real coastline` — проверяет геометрию входных данных, считает метрики реальной береговой линии и сохраняет `coastline.svg`
+
+Синтетические демонстрации:
+
+- `fraes model paradox` — математически корректно показывает рост длины при уменьшении шага измерения и добавлении деталей; использует реальную линию только как базовую полилинию
+- `fraes model koch` — строит классическую кривую Коха поверх базовой полилинии и сохраняет серию `koch_iter_0.svg ... koch_iter_N.svg`
+- `fraes model koch-organic` — строит органическую фрактальную аппроксимацию поверх базовой полилинии
+- `fraes model dimension` — считает box-counting размерность для синтетических organic-итераций, построенных от базовой полилинии
+
+Смешанный сценарий:
+
+- `fraes all` — сначала считает реальные метрики загруженной береговой линии, затем запускает синтетические демонстрации
+
+Legacy aliases всё ещё поддерживаются для совместимости: `fraes coastline`, `fraes paradox`, `fraes koch`, `fraes koch-organic`, `fraes dimension`.
+
+Важно: `model paradox`, `model koch`, `model koch-organic`, `model dimension` и синтетические этапы `all` не являются прямым измерением реальной береговой линии после итерации `0`. Они используют загруженный контур только как исходную геометрию модели.
+
+Для производительности проект автоматически упрощает геометрию в двух местах: `coastline.svg` и серии `koch_iter_*.svg` рендерятся по облегчённой копии полилинии, а тяжёлые синтетические команды (`paradox`, `koch`, `koch-organic`, `dimension`, `all`) используют упрощённую базовую геометрию перед рекурсивным ростом. Реальные метрики команды `real coastline` при этом продолжают считаться по полной загруженной линии.
 
 Флаги подкоманд:
 
-- `--input` — путь к JSON с точками береговой линии
+- `--input` — путь к локальному JSON/GeoJSON-файлу береговой линии, который используется как fallback
+- `--source-url` — удалённый GeoJSON-источник береговой линии; по умолчанию проект сначала пробует официальный Marine Regions WFS для `Black Sea` и только потом уходит в локальный fallback
+- `--refresh` — принудительно обновляет локальный кэш удалённого GeoJSON перед расчётом
 - `--iterations` — максимальное число итераций Коха
-- `--output` — путь к одному SVG или к директории с артефактами
+- `--output` — путь к одному SVG, snapshot JSON/GeoJSON или к директории с артефактами
 - для `koch`, `koch-organic`, `dimension`, `all`: `--seed`, `--angle-jitter`, `--height-jitter`
 
 Поведение `--output`:
 
-- если флаг не указан, файлы сохраняются в `./output/`
+- если флаг не указан, аналитические и модельные команды сохраняют файлы в `./output/`, а `fraes source` пишет snapshot в `./data/snapshots/`
 - если путь заканчивается на `.svg`, это одиночный SVG-файл
 - если путь не заканчивается на `.svg`, это директория для результатов
 - для команд `koch`, `dimension` и `all` удобнее передавать именно директорию
@@ -97,8 +124,17 @@ go run ./cmd/fraes --help
 # Список команд
 ./fraes --help
 
+# Посмотреть метаданные источника и сохранить snapshot
+./fraes source
+
 # Базовый запуск
-./fraes coastline
+./fraes real coastline
+
+# Принудительно обновить GeoJSON-кэш перед запуском
+./fraes real coastline --refresh
+
+# Принудительно только локальный fallback
+./fraes real coastline --source-url ''
 ```
 
 ---
@@ -107,18 +143,30 @@ go run ./cmd/fraes --help
 
 ```bash
 # 1. Метрики исходной береговой линии + SVG в ./output/
-./fraes coastline
+./fraes real coastline
 
-# 2. Organic Koch с 4 итерациями и серией SVG в директории
-./fraes koch --iterations 4 --seed 42 --angle-jitter 18 --height-jitter 0.25 --output ./output/koch
+# 0. Метаданные источника и raw snapshot в ./data/snapshots/
+./fraes source
 
-# 3. Alias на тот же organic-режим
-./fraes koch-organic --iterations 4 --seed 42 --angle-jitter 18 --height-jitter 0.25 --output ./output/koch-organic
+# 0a. Принудительно перечитать удалённый источник и сохранить snapshot в свою директорию
+./fraes source --refresh --output ./data/snapshots
 
-# 4. Эмпирическая размерность для organic-модели
-./fraes dimension --iterations 6 --seed 42 --angle-jitter 18 --height-jitter 0.25 --input data/black-sea.json
+# 1a. Явно использовать удалённый GeoJSON-источник
+./fraes real coastline --source-url 'https://geo.vliz.be/geoserver/MarineRegions/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=iho&cql_filter=mrgid%3D3319&outputFormat=application%2Fjson'
 
-# 5. Полный текущий прогон со всеми демонстрациями
+# 1b. Принудительно перечитать удалённый источник и обновить кэш
+./fraes real coastline --refresh
+
+# 2. Синтетическая демонстрация classic Koch от реальной базовой полилинии
+./fraes model koch --iterations 4 --output ./output/koch
+
+# 3. Синтетическая organic-модель от той же базовой полилинии
+./fraes model koch-organic --iterations 4 --seed 42 --angle-jitter 18 --height-jitter 0.25 --output ./output/koch-organic
+
+# 4. Эмпирическая размерность синтетической organic-модели
+./fraes model dimension --iterations 6 --seed 42 --angle-jitter 18 --height-jitter 0.25 --input data/black-sea.json
+
+# 5. Полный сценарий: сначала реальные метрики, затем демонстрации
 ./fraes all --output ./output/full-run
 ```
 
@@ -127,9 +175,14 @@ go run ./cmd/fraes --help
 После выполнения в каталоге `--output` появятся:
 
 - `coastline.svg` — SVG-отчёт по исходной береговой линии
-- `koch_iter_0.svg ... koch_iter_N.svg` — SVG-отчёты по фрактальным итерациям с длинами и масштабом
+- `koch_iter_0.svg ... koch_iter_N.svg` — SVG-отчёты по синтетическим итерациям; `iter_0` совпадает с реальной базовой полилинией, `iter_1 ... iter_N` являются модельными преобразованиями
+- при большом числе точек SVG экспортирует упрощённую копию геометрии для рендера, но длины и табличные метрики в подписях считаются по расчётной полилинии
 
 Сейчас проект не генерирует `gif`, `csv` или `json`-отчёты. Это следующие этапы из плана разработки.
+
+Отдельная команда `fraes source` сохраняет raw snapshot исходного payload в `data/snapshots/` или в путь из `--output`; это независимая копия источника, не совпадающая с рабочим кэшем в `data/cache/`.
+
+По умолчанию загрузка береговой линии работает в режиме `cache-first`: FRAES сначала пытается использовать локальный кэш удалённого GeoJSON в `data/cache/`, затем при необходимости делает HTTP GET к официальному Marine Regions WFS-эндпоинту для `Black Sea` (`mrgid=3319`), обновляет кэш и только при сетевой или форматной ошибке использует локальный `data/black-sea.json`. Флаг `--refresh` принудительно пропускает чтение из кэша и заново скачивает удалённый источник.
 
 ---
 
@@ -149,23 +202,6 @@ go run ./cmd/fraes --help
 - Фрактальная геометрия и вычислительная геометрия
 - Экологическое прогнозирование и оценка рисков эрозии
 - Образовательные курсы по фракталам и моделированию природных процессов
-
----
-
-## 📝 Цитирование
-
-Если используете FRAES в научных публикациях, пожалуйста, ссылайтесь так:
-
-```bibtex
-@software{fraes2025,
-  author = {NeDatsky},
-  title = {FRAES — Fractal Approximation & Erosion Simulation of Coastal Systems},
-  year = {2025},
-  publisher = {GitHub},
-  url = {https://github.com/Nickitas/Fractal-Approximation-Erosion-Simulation},
-  doi = {10.5281/zenodo.xxxxxx}
-}
-```
 
 --- 
 

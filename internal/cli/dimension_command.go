@@ -26,10 +26,10 @@ type dimensionAssessment struct {
 
 func runDimensionCommand(app *App) error {
 	opts := organicKochOptions(app)
-	if err := writeOrganicKochSVGSeries(app.Base, app.Config.Iterations, app.Config.OutputPath, opts, "koch_iter"); err != nil {
+	if err := writeOrganicKochSVGSeries(app.ModelBase, app.Config.Iterations, app.Config.OutputPath, opts, "koch_iter"); err != nil {
 		return err
 	}
-	assessment, err := runDimensionMetrics(app.Base, app.Config.Iterations, opts)
+	assessment, err := runDimensionMetrics(app.ModelBase, app.Config.Iterations, opts)
 	if err != nil {
 		return err
 	}

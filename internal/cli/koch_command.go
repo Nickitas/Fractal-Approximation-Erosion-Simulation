@@ -6,11 +6,11 @@ import (
 )
 
 func runKochCommand(app *App) error {
-	report := runKochMetrics(app.Base, app.Config.Iterations)
+	report := runKochMetrics(app.ModelBase, app.Config.Iterations)
 	if !report.Valid {
 		printInvalidResult()
 	}
-	return writeKochSVGSeries(app.Base, app.Config.Iterations, app.Config.OutputPath)
+	return writeKochSVGSeries(app.ModelBase, app.Config.Iterations, app.Config.OutputPath)
 }
 
 func runKochMetrics(base []geometry.LatLon, iterations int) koch.TheoryCheckReport {
