@@ -38,45 +38,45 @@ func getCommandUX(command string) commandUX {
 	switch command {
 	case cmdSource:
 		return commandUX{
-			Mode:        "dataset inspection",
-			Summary:     "shows source metadata and saves a raw local snapshot of the selected dataset",
-			RuntimeNote: "the command inspects the raw source payload and writes a snapshot copy without running coastline metrics or synthetic model stages",
+			Mode:        "проверка источника данных",
+			Summary:     "показывает метаданные источника и сохраняет локальный сырой snapshot выбранного набора",
+			RuntimeNote: "команда анализирует сырой payload источника и сохраняет snapshot без запуска метрик береговой линии и синтетических модельных этапов",
 		}
 	case cmdCoastline:
 		return commandUX{
-			Mode:        "real-data analysis",
-			Summary:     "reports geometry and geodesic metrics for the loaded coastline itself",
-			RuntimeNote: "reported length and coastline.svg correspond to the loaded coastline without synthetic transformations",
+			Mode:        "анализ реальных данных",
+			Summary:     "выводит геометрию и геодезические метрики для самой загруженной береговой линии",
+			RuntimeNote: "показанная длина и `coastline.svg` соответствуют загруженной береговой линии без синтетических преобразований",
 		}
 	case cmdParadox:
 		return commandUX{
-			Mode:        "synthetic demonstration",
-			Summary:     "uses the loaded coastline only as a base polyline, then adds synthetic detail for the paradox demo",
-			RuntimeNote: "iteration 0 is the loaded coastline; higher levels are synthetic refinements, not direct real-world measurements",
+			Mode:        "синтетическая демонстрация",
+			Summary:     "использует загруженную береговую линию только как базовую полилинию, а затем добавляет синтетические детали для демонстрации парадокса",
+			RuntimeNote: "итерация 0 соответствует загруженной береговой линии; более высокие уровни являются синтетическими уточнениями, а не прямыми измерениями реального мира",
 		}
 	case cmdKoch:
 		return commandUX{
-			Mode:        "synthetic demonstration",
-			Summary:     "uses the loaded coastline as a base polyline for the classic Koch model",
-			RuntimeNote: "iteration 0 is the loaded coastline; Koch iterations are synthetic model curves derived from it",
+			Mode:        "синтетическая демонстрация",
+			Summary:     "использует загруженную береговую линию как базовую полилинию для классической модели Коха",
+			RuntimeNote: "итерация 0 соответствует загруженной береговой линии; последующие итерации Коха являются синтетическими модельными кривыми, построенными на её основе",
 		}
 	case cmdKochOrganic:
 		return commandUX{
-			Mode:        "synthetic demonstration",
-			Summary:     "uses the loaded coastline as a base polyline for an organic fractal model",
-			RuntimeNote: "iteration 0 is the loaded coastline; later iterations are synthetic and tuned by jitter parameters",
+			Mode:        "синтетическая демонстрация",
+			Summary:     "использует загруженную береговую линию как базовую полилинию для organic-фрактальной модели",
+			RuntimeNote: "итерация 0 соответствует загруженной береговой линии; последующие итерации синтетические и настраиваются jitter-параметрами",
 		}
 	case cmdDimension:
 		return commandUX{
-			Mode:        "synthetic demonstration",
-			Summary:     "estimates box-counting dimension on synthetic organic iterations built from the loaded coastline",
-			RuntimeNote: "dimension diagnostics apply to the generated organic model, not directly to the raw coastline geometry alone",
+			Mode:        "синтетическая демонстрация",
+			Summary:     "оценивает box-counting размерность на синтетических organic-итерациях, построенных от загруженной береговой линии",
+			RuntimeNote: "диагностика размерности относится к сгенерированной organic-модели, а не напрямую к сырой геометрии береговой линии",
 		}
 	case cmdAll:
 		return commandUX{
-			Mode:        "mixed pipeline",
-			Summary:     "starts with real-data coastline metrics, then runs synthetic paradox and fractal model stages",
-			RuntimeNote: "the first stage reports the loaded coastline itself; subsequent stages are synthetic demonstrations derived from that base geometry",
+			Mode:        "смешанный сценарий",
+			Summary:     "начинает с реальных метрик береговой линии, затем запускает синтетические этапы парадокса и фрактальной модели",
+			RuntimeNote: "первый этап относится к самой загруженной береговой линии; последующие этапы являются синтетическими демонстрациями, построенными на этой базовой геометрии",
 		}
 	default:
 		return commandUX{}

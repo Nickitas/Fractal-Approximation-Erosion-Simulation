@@ -94,7 +94,7 @@ func TestParseConfigShowsGroupHelpWithoutSubcommand(t *testing.T) {
 	if err != flag.ErrHelp {
 		t.Fatalf("expected flag.ErrHelp, got %v", err)
 	}
-	if !strings.Contains(stdout.String(), "Usage:") {
+	if !strings.Contains(stdout.String(), "Использование:") {
 		t.Fatalf("expected help output, got %q", stdout.String())
 	}
 }

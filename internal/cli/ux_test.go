@@ -7,13 +7,13 @@ func TestGetCommandUX(t *testing.T) {
 		command string
 		mode    string
 	}{
-		{command: cmdSource, mode: "dataset inspection"},
-		{command: cmdCoastline, mode: "real-data analysis"},
-		{command: cmdParadox, mode: "synthetic demonstration"},
-		{command: cmdKoch, mode: "synthetic demonstration"},
-		{command: cmdKochOrganic, mode: "synthetic demonstration"},
-		{command: cmdDimension, mode: "synthetic demonstration"},
-		{command: cmdAll, mode: "mixed pipeline"},
+		{command: cmdSource, mode: "проверка источника данных"},
+		{command: cmdCoastline, mode: "анализ реальных данных"},
+		{command: cmdParadox, mode: "синтетическая демонстрация"},
+		{command: cmdKoch, mode: "синтетическая демонстрация"},
+		{command: cmdKochOrganic, mode: "синтетическая демонстрация"},
+		{command: cmdDimension, mode: "синтетическая демонстрация"},
+		{command: cmdAll, mode: "смешанный сценарий"},
 	}
 
 	for _, test := range tests {
