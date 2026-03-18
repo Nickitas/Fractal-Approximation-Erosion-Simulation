@@ -21,6 +21,7 @@ func Run(args []string, stdout, stderr io.Writer) {
 		exitWithError(stderr, err)
 	}
 
+	printLoadNotes(stdout, app)
 	printValidationReport(stdout, app.Validation)
 
 	if err := executeCommand(app); err != nil {
@@ -39,5 +40,16 @@ func printValidationReport(w io.Writer, report coastline.ValidationReport) {
 	}
 	for _, warning := range report.Warnings {
 		fmt.Fprintf(w, "warning: %s\n", warning)
+	}
+}
+
+func printLoadNotes(w io.Writer, app *App) {
+	if app == nil || app.DataSource == "" {
+		return
+	}
+
+	fmt.Fprintf(w, "info: coastline source: %s\n", app.DataSource)
+	for _, note := range app.LoadNotes {
+		fmt.Fprintf(w, "warning: %s\n", note)
 	}
 }

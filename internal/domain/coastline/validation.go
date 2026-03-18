@@ -223,6 +223,10 @@ func pointKey(point geometry.LatLon) string {
 }
 
 func duplicateLocationWarnings(points []geometry.LatLon) []string {
+	if len(points) > 200 {
+		return nil
+	}
+
 	counts := map[string]int{}
 	for _, point := range points {
 		name := getLocationName(point)

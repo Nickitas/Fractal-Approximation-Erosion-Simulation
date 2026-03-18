@@ -5,7 +5,7 @@ import "coastal-geometry/internal/domain/coastline"
 func runAllCommand(app *App) error {
 	invalid := false
 
-	sanity := coastline.MainCalculation(app.Base, app.Config.InputPath)
+	sanity := coastline.MainCalculation(app.Base, app.Dataset, app.DataSource)
 	if sanity.Checked && !sanity.Valid {
 		invalid = true
 	}

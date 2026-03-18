@@ -22,6 +22,7 @@ const (
 type config struct {
 	Command      string
 	InputPath    string
+	SourceURL    string
 	OutputPath   string
 	Iterations   int
 	Seed         int64
@@ -52,7 +53,8 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 
 	switch command {
 	case cmdAll:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
 		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum organic Koch iterations (0-%d)", koch.MaxIterations))
 		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")
@@ -60,20 +62,24 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		fs.Float64Var(&cfg.HeightJitter, "height-jitter", 0.25, "maximum random height deviation as a ratio")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdCoastline:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output SVG path or directory (default: ./output)")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdParadox:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
 		fs.IntVar(&cfg.Iterations, "iterations", 4, fmt.Sprintf("maximum paradox detail levels (0-%d)", koch.MaxIterations))
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdKoch:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
 		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum Koch iterations (0-%d)", koch.MaxIterations))
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdKochOrganic:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
 		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum organic Koch iterations (0-%d)", koch.MaxIterations))
 		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")
@@ -81,7 +87,8 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		fs.Float64Var(&cfg.HeightJitter, "height-jitter", 0.25, "maximum random height deviation as a ratio")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdDimension:
-		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to coastline JSON file")
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
 		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum organic Koch iterations (0-%d)", koch.MaxIterations))
 		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")

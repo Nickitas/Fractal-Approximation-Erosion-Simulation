@@ -67,7 +67,8 @@
 
 Флаги подкоманд:
 
-- `--input` — путь к JSON с точками береговой линии
+- `--input` — путь к локальному JSON/GeoJSON-файлу береговой линии, который используется как fallback
+- `--source-url` — удалённый GeoJSON-источник береговой линии; по умолчанию проект сначала пробует официальный Marine Regions WFS для `Black Sea` и только потом уходит в локальный fallback
 - `--iterations` — максимальное число итераций Коха
 - `--output` — путь к одному SVG или к директории с артефактами
 - для `koch`, `koch-organic`, `dimension`, `all`: `--seed`, `--angle-jitter`, `--height-jitter`
@@ -99,6 +100,9 @@ go run ./cmd/fraes --help
 
 # Базовый запуск
 ./fraes coastline
+
+# Принудительно только локальный fallback
+./fraes coastline --source-url ''
 ```
 
 ---
@@ -108,6 +112,9 @@ go run ./cmd/fraes --help
 ```bash
 # 1. Метрики исходной береговой линии + SVG в ./output/
 ./fraes coastline
+
+# 1a. Явно использовать удалённый GeoJSON-источник
+./fraes coastline --source-url 'https://geo.vliz.be/geoserver/MarineRegions/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=iho&cql_filter=mrgid%3D3319&outputFormat=application%2Fjson'
 
 # 2. Organic Koch с 4 итерациями и серией SVG в директории
 ./fraes koch --iterations 4 --seed 42 --angle-jitter 18 --height-jitter 0.25 --output ./output/koch
@@ -131,6 +138,8 @@ go run ./cmd/fraes --help
 
 Сейчас проект не генерирует `gif`, `csv` или `json`-отчёты. Это следующие этапы из плана разработки.
 
+По умолчанию загрузка береговой линии работает в режиме `remote-first`: FRAES делает HTTP GET к официальному Marine Regions WFS-эндпоинту для `Black Sea` (`mrgid=3319`), забирает уже целевую морскую геометрию и только при сетевой или форматной ошибке использует локальный `data/black-sea.json`.
+
 ---
 
 ## 🧪 Научные задачи проекта
@@ -149,23 +158,6 @@ go run ./cmd/fraes --help
 - Фрактальная геометрия и вычислительная геометрия
 - Экологическое прогнозирование и оценка рисков эрозии
 - Образовательные курсы по фракталам и моделированию природных процессов
-
----
-
-## 📝 Цитирование
-
-Если используете FRAES в научных публикациях, пожалуйста, ссылайтесь так:
-
-```bibtex
-@software{fraes2025,
-  author = {NeDatsky},
-  title = {FRAES — Fractal Approximation & Erosion Simulation of Coastal Systems},
-  year = {2025},
-  publisher = {GitHub},
-  url = {https://github.com/Nickitas/Fractal-Approximation-Erosion-Simulation},
-  doi = {10.5281/zenodo.xxxxxx}
-}
-```
 
 --- 
 
