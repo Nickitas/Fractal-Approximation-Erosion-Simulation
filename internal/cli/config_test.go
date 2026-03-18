@@ -38,6 +38,20 @@ func TestParseConfigGroupedModelCommand(t *testing.T) {
 	}
 }
 
+func TestParseConfigRefreshFlag(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	cfg, err := parseConfig([]string{cmdReal, cmdCoastline, "--refresh"}, &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("parseConfig returned error: %v", err)
+	}
+
+	if !cfg.Refresh {
+		t.Fatal("expected refresh flag to be true")
+	}
+}
+
 func TestParseConfigSupportsLegacyAlias(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

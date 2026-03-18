@@ -2,6 +2,7 @@ package coastline
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 
 const (
 	DefaultCoastlineJSONPath = "data/black-sea.json"
+	DefaultCoastlineCacheDir = "data/cache"
 	defaultHTTPTimeout       = 12 * time.Second
 	marineRegionsWFSURL      = "https://geo.vliz.be/geoserver/MarineRegions/wfs"
 	blackSeaMarineRegionID   = 3319
@@ -56,6 +58,8 @@ type LoadOptions struct {
 	LocalPath    string
 	RemoteURL    string
 	RemoteBounds GeoBounds
+	CachePath    string
+	Refresh      bool
 	HTTPClient   *http.Client
 }
 
@@ -73,14 +77,9 @@ func LoadFromJSON(filename string) ([]geometry.LatLon, ValidationReport, error) 
 		return nil, ValidationReport{}, fmt.Errorf("read coastline json %q: %w", filename, err)
 	}
 
-	points, err := parseCoastlineData(data, GeoBounds{})
+	normalized, report, err := loadCoastlineData(data, filename, GeoBounds{})
 	if err != nil {
-		return nil, ValidationReport{}, fmt.Errorf("parse coastline json %q: %w", filename, err)
-	}
-
-	normalized, report, err := normalizeLoadedPoints(points)
-	if err != nil {
-		return nil, ValidationReport{}, fmt.Errorf("validate coastline json %q: %w", filename, err)
+		return nil, ValidationReport{}, err
 	}
 
 	return normalized, report, nil
@@ -106,23 +105,57 @@ func Load(options LoadOptions) (LoadResult, error) {
 		}, nil
 	}
 
-	remotePoints, err := fetchCoastlineData(options.HTTPClient, remoteURL, options.RemoteBounds)
-	if err == nil {
-		normalized, report, normalizeErr := normalizeLoadedPoints(remotePoints)
-		if normalizeErr == nil {
+	cachePath := strings.TrimSpace(options.CachePath)
+	if cachePath == "" {
+		cachePath = defaultCoastlineCachePath(remoteURL)
+	}
+
+	if !options.Refresh {
+		points, report, err := loadCachedCoastline(cachePath, options.RemoteBounds)
+		if err == nil {
 			return LoadResult{
-				Points:      normalized,
+				Points:      points,
 				Validation:  report,
-				Source:      remoteURL,
+				Source:      cachedSourceLabel(cachePath, remoteURL),
 				DatasetName: filepath.Base(localPath),
 			}, nil
 		}
-		err = normalizeErr
+	}
+
+	remotePayload, err := fetchCoastlinePayload(options.HTTPClient, remoteURL)
+	if err == nil {
+		points, report, loadErr := loadCoastlineData(remotePayload, remoteURL, options.RemoteBounds)
+		if loadErr == nil {
+			result := LoadResult{
+				Points:      points,
+				Validation:  report,
+				Source:      remoteURL,
+				DatasetName: filepath.Base(localPath),
+			}
+			if cacheErr := writeCoastlineCache(cachePath, remotePayload); cacheErr != nil {
+				result.LoadWarnings = append(result.LoadWarnings, fmt.Sprintf("unable to update coastline cache %q: %v", cachePath, cacheErr))
+			}
+			return result, nil
+		}
+		err = loadErr
+	}
+
+	points, report, cacheErr := loadCachedCoastline(cachePath, options.RemoteBounds)
+	if cacheErr == nil {
+		return LoadResult{
+			Points:      points,
+			Validation:  report,
+			Source:      cachedSourceLabel(cachePath, remoteURL),
+			DatasetName: filepath.Base(localPath),
+			LoadWarnings: []string{
+				fmt.Sprintf("remote source %q unavailable, using cached GeoJSON %q: %v", remoteURL, cachePath, err),
+			},
+		}, nil
 	}
 
 	points, report, fallbackErr := LoadFromJSON(localPath)
 	if fallbackErr != nil {
-		return LoadResult{}, fmt.Errorf("load coastline from remote %q: %v; load fallback %q: %w", remoteURL, err, localPath, fallbackErr)
+		return LoadResult{}, fmt.Errorf("load coastline from remote %q: %v; load cache %q: %v; load fallback %q: %w", remoteURL, err, cachePath, cacheErr, localPath, fallbackErr)
 	}
 
 	return LoadResult{
@@ -141,6 +174,20 @@ func FetchCoastlineData(url string) ([]geometry.LatLon, error) {
 }
 
 func fetchCoastlineData(client *http.Client, url string, bounds GeoBounds) ([]geometry.LatLon, error) {
+	payload, err := fetchCoastlinePayload(client, url)
+	if err != nil {
+		return nil, err
+	}
+
+	points, _, err := loadCoastlineData(payload, url, bounds)
+	if err != nil {
+		return nil, err
+	}
+
+	return points, nil
+}
+
+func fetchCoastlinePayload(client *http.Client, url string) ([]byte, error) {
 	if strings.TrimSpace(url) == "" {
 		return nil, fmt.Errorf("remote url is empty")
 	}
@@ -171,12 +218,50 @@ func fetchCoastlineData(client *http.Client, url string, bounds GeoBounds) ([]ge
 		return nil, fmt.Errorf("read coastline response %q: %w", url, err)
 	}
 
-	points, err := parseCoastlineData(body, bounds)
-	if err != nil {
-		return nil, fmt.Errorf("parse coastline response %q: %w", url, err)
+	return body, nil
+}
+
+func loadCachedCoastline(cachePath string, bounds GeoBounds) ([]geometry.LatLon, ValidationReport, error) {
+	if strings.TrimSpace(cachePath) == "" {
+		return nil, ValidationReport{}, fmt.Errorf("cache path is empty")
 	}
 
-	return points, nil
+	data, err := os.ReadFile(cachePath)
+	if err != nil {
+		return nil, ValidationReport{}, fmt.Errorf("read coastline cache %q: %w", cachePath, err)
+	}
+
+	return loadCoastlineData(data, cachePath, bounds)
+}
+
+func writeCoastlineCache(cachePath string, data []byte) error {
+	if strings.TrimSpace(cachePath) == "" {
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
+		return fmt.Errorf("create cache directory for %q: %w", cachePath, err)
+	}
+
+	if err := os.WriteFile(cachePath, data, 0o644); err != nil {
+		return fmt.Errorf("write cache file %q: %w", cachePath, err)
+	}
+
+	return nil
+}
+
+func loadCoastlineData(data []byte, source string, bounds GeoBounds) ([]geometry.LatLon, ValidationReport, error) {
+	points, err := parseCoastlineData(data, bounds)
+	if err != nil {
+		return nil, ValidationReport{}, fmt.Errorf("parse coastline data %q: %w", source, err)
+	}
+
+	normalized, report, err := normalizeLoadedPoints(points)
+	if err != nil {
+		return nil, ValidationReport{}, fmt.Errorf("validate coastline data %q: %w", source, err)
+	}
+
+	return normalized, report, nil
 }
 
 func normalizeLoadedPoints(points []geometry.LatLon) ([]geometry.LatLon, ValidationReport, error) {
@@ -477,4 +562,17 @@ func buildDefaultCoastlineGeoJSONURL() string {
 	}
 
 	return marineRegionsWFSURL + "?" + query.Encode()
+}
+
+func defaultCoastlineCachePath(remoteURL string) string {
+	if remoteURL == DefaultCoastlineGeoJSONURL {
+		return filepath.Join(DefaultCoastlineCacheDir, "black-sea.geojson")
+	}
+
+	sum := sha1.Sum([]byte(remoteURL))
+	return filepath.Join(DefaultCoastlineCacheDir, fmt.Sprintf("coastline-%x.geojson", sum[:6]))
+}
+
+func cachedSourceLabel(cachePath, remoteURL string) string {
+	return fmt.Sprintf("%s (cached copy of %s)", cachePath, remoteURL)
 }

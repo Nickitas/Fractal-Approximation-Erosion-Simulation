@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -192,5 +193,176 @@ func TestLoadFallsBackToLocalJSONWhenRemoteFails(t *testing.T) {
 	}
 	if !strings.Contains(result.LoadWarnings[0], "using local fallback") {
 		t.Fatalf("unexpected load warning: %+v", result.LoadWarnings)
+	}
+}
+
+func TestLoadUsesCacheWithoutRemoteRequest(t *testing.T) {
+	dir := t.TempDir()
+	fallbackPath := filepath.Join(dir, "fallback.json")
+	cachePath := filepath.Join(dir, "cache.geojson")
+	if err := os.WriteFile(fallbackPath, []byte(`[
+		{"lat": 10.0, "lon": 10.0},
+		{"lat": 11.0, "lon": 11.0}
+	]`), 0o644); err != nil {
+		t.Fatalf("write fallback json: %v", err)
+	}
+	if err := os.WriteFile(cachePath, []byte(`{
+		"type": "Feature",
+		"geometry": {
+			"type": "LineString",
+			"coordinates": [
+				[30.73, 46.48],
+				[32.49, 45.33],
+				[34.10, 44.94],
+				[39.75, 43.70]
+			]
+		}
+	}`), 0o644); err != nil {
+		t.Fatalf("write cache geojson: %v", err)
+	}
+
+	var hits atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		http.Error(w, "should not be called", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	result, err := Load(LoadOptions{
+		LocalPath:  fallbackPath,
+		RemoteURL:  server.URL,
+		CachePath:  cachePath,
+		HTTPClient: server.Client(),
+	})
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	if hits.Load() != 0 {
+		t.Fatalf("expected no remote requests, got %d", hits.Load())
+	}
+	if len(result.Points) != 4 {
+		t.Fatalf("expected 4 cached points, got %d", len(result.Points))
+	}
+	if !strings.Contains(result.Source, "cached copy") {
+		t.Fatalf("expected cached source label, got %q", result.Source)
+	}
+}
+
+func TestLoadRefreshesRemoteCache(t *testing.T) {
+	dir := t.TempDir()
+	fallbackPath := filepath.Join(dir, "fallback.json")
+	cachePath := filepath.Join(dir, "cache.geojson")
+	if err := os.WriteFile(fallbackPath, []byte(`[
+		{"lat": 10.0, "lon": 10.0},
+		{"lat": 11.0, "lon": 11.0}
+	]`), 0o644); err != nil {
+		t.Fatalf("write fallback json: %v", err)
+	}
+	if err := os.WriteFile(cachePath, []byte(`{
+		"type": "Feature",
+		"geometry": {
+			"type": "LineString",
+			"coordinates": [
+				[30.73, 46.48],
+				[32.49, 45.33]
+			]
+		}
+	}`), 0o644); err != nil {
+		t.Fatalf("write stale cache geojson: %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/geo+json")
+		fmt.Fprint(w, `{
+			"type": "Feature",
+			"geometry": {
+				"type": "LineString",
+				"coordinates": [
+					[30.73, 46.48],
+					[32.49, 45.33],
+					[34.10, 44.94],
+					[39.75, 43.70]
+				]
+			}
+		}`)
+	}))
+	defer server.Close()
+
+	result, err := Load(LoadOptions{
+		LocalPath:  fallbackPath,
+		RemoteURL:  server.URL,
+		CachePath:  cachePath,
+		Refresh:    true,
+		HTTPClient: server.Client(),
+	})
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	if result.Source != server.URL {
+		t.Fatalf("expected refreshed remote source %q, got %q", server.URL, result.Source)
+	}
+	if len(result.Points) != 4 {
+		t.Fatalf("expected 4 refreshed points, got %d", len(result.Points))
+	}
+
+	cached, err := os.ReadFile(cachePath)
+	if err != nil {
+		t.Fatalf("read updated cache: %v", err)
+	}
+	if !strings.Contains(string(cached), "[39.75, 43.70]") {
+		t.Fatalf("expected cache to be updated, got %s", string(cached))
+	}
+}
+
+func TestLoadUsesStaleCacheWhenRefreshFails(t *testing.T) {
+	dir := t.TempDir()
+	fallbackPath := filepath.Join(dir, "fallback.json")
+	cachePath := filepath.Join(dir, "cache.geojson")
+	if err := os.WriteFile(fallbackPath, []byte(`[
+		{"lat": 10.0, "lon": 10.0},
+		{"lat": 11.0, "lon": 11.0}
+	]`), 0o644); err != nil {
+		t.Fatalf("write fallback json: %v", err)
+	}
+	if err := os.WriteFile(cachePath, []byte(`{
+		"type": "Feature",
+		"geometry": {
+			"type": "LineString",
+			"coordinates": [
+				[30.73, 46.48],
+				[32.49, 45.33],
+				[34.10, 44.94]
+			]
+		}
+	}`), 0o644); err != nil {
+		t.Fatalf("write cache geojson: %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "temporary failure", http.StatusBadGateway)
+	}))
+	defer server.Close()
+
+	result, err := Load(LoadOptions{
+		LocalPath:  fallbackPath,
+		RemoteURL:  server.URL,
+		CachePath:  cachePath,
+		Refresh:    true,
+		HTTPClient: server.Client(),
+	})
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	if !strings.Contains(result.Source, "cached copy") {
+		t.Fatalf("expected stale cache source, got %q", result.Source)
+	}
+	if len(result.LoadWarnings) != 1 || !strings.Contains(result.LoadWarnings[0], "using cached GeoJSON") {
+		t.Fatalf("expected cached warning, got %+v", result.LoadWarnings)
+	}
+	if len(result.Points) != 3 {
+		t.Fatalf("expected 3 stale cached points, got %d", len(result.Points))
 	}
 }

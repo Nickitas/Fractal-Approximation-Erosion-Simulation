@@ -21,6 +21,7 @@ func NewApp(cfg config) (*App, error) {
 		result, err := coastline.Load(coastline.LoadOptions{
 			LocalPath: cfg.InputPath,
 			RemoteURL: cfg.SourceURL,
+			Refresh:   cfg.Refresh,
 		})
 		if err != nil {
 			return nil, err
