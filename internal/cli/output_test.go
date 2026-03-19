@@ -80,7 +80,7 @@ func TestWriteCoastlineSVGCreatesMetricsSidecar(t *testing.T) {
 		t.Fatalf("read coastline svg: %v", err)
 	}
 	svg := string(svgContent)
-	for _, expected := range []string{"Предупреждения", "Длинные сегменты", "Контроль геометрии", "Автоисправления"} {
+	for _, expected := range []string{"Предупреждения", "Длинные сегменты", "Контроль геометрии", "Автоисправления", "Сводка"} {
 		if !strings.Contains(svg, expected) {
 			t.Fatalf("expected coastline SVG to contain %q", expected)
 		}
@@ -115,11 +115,14 @@ func TestWriteKochSVGSeriesShowsReferenceAndModelBase(t *testing.T) {
 	}
 	svg := string(content)
 	for _, expected := range []string{
-		"Реальная загруженная полилиния (справочно)",
-		"Упрощённая база модели (итерация 0)",
+		"Реальная загруженная",
+		"полилиния (справочно)",
+		"Упрощённая база модели",
+		"(итерация 0)",
 		"Длина по итерациям",
 		"Контроль геометрии",
 		"Повторы ориентиров",
+		"Сводка",
 	} {
 		if !strings.Contains(svg, expected) {
 			t.Fatalf("expected SVG to contain %q", expected)
@@ -197,7 +200,7 @@ func TestWriteOrganicKochSVGSeriesPersistsDimensionMetrics(t *testing.T) {
 		t.Fatalf("read dimension svg: %v", err)
 	}
 	svg := string(svgContent)
-	for _, expected := range []string{"Размерность D", "Оценка", "Теория"} {
+	for _, expected := range []string{"Размерность D", "Оценка", "Теория", "Сводка"} {
 		if !strings.Contains(svg, expected) {
 			t.Fatalf("expected dimension SVG to contain %q", expected)
 		}

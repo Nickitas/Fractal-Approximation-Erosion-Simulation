@@ -9,13 +9,13 @@ import (
 )
 
 const (
-	canvasWidth   = 1440
-	canvasHeight  = 900
-	padding       = 56.0
-	headerHeight  = 108.0
-	sidebarWidth  = 320.0
-	scaleBarYGap  = 42.0
-	defaultStroke = "#1f6f8b"
+	canvasWidth       = 1440
+	canvasHeight      = 900
+	padding           = 56.0
+	sidebarWidth      = 320.0
+	scaleBarYGap      = 42.0
+	defaultStroke     = "#1f6f8b"
+	defaultHeaderNote = "SVG содержит исходную полилинию, фрактальные итерации, масштаб и длину по слоям."
 )
 
 type Layer struct {
@@ -107,12 +107,14 @@ func DrawDocument(doc Document, filename string) error {
 	}
 
 	plotWidth := float64(canvasWidth) - sidebarWidth - 2*padding
-	plotHeight := float64(canvasHeight) - headerHeight - padding
+	header, headerBottom := buildHeader(doc.Title, doc.Subtitle, padding, plotWidth)
+	plotTopY := headerBottom + 24
+	plotHeight := float64(canvasHeight) - plotTopY - padding
 	scale := math.Min(plotWidth/lonSpan, plotHeight/latSpan)
 	contentWidth := lonSpan * scale
 	contentHeight := latSpan * scale
 	originX := padding + (plotWidth-contentWidth)/2
-	originY := headerHeight + (plotHeight-contentHeight)/2
+	originY := plotTopY + (plotHeight-contentHeight)/2
 
 	var layers strings.Builder
 	for _, layer := range doc.Layers {
@@ -156,64 +158,31 @@ func DrawDocument(doc Document, filename string) error {
 	}
 
 	sidebarX := padding + plotWidth + 28
-	var legend strings.Builder
-	legendLineSpacing := legendSpacing(len(doc.Layers))
-	legend.WriteString(fmt.Sprintf(
-		`    <text x="%.0f" y="146" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#16324f">Слои и длины</text>`+"\n",
-		sidebarX,
-	))
-	for i, layer := range doc.Layers {
-		y := 184.0 + float64(i)*legendLineSpacing
-		legend.WriteString(fmt.Sprintf(
-			`    <line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="%s" stroke-width="%.2f" stroke-opacity="%.2f"%s/>`+"\n",
-			sidebarX,
-			y,
-			sidebarX+34,
-			y,
-			escapeText(layerStroke(layer)),
-			layerWidth(layer),
-			layerOpacity(layer),
-			layerDashAttribute(layer),
-		))
-		legend.WriteString(fmt.Sprintf(
-			`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#16324f">%s</text>`+"\n",
-			sidebarX+46,
-			y+4,
-			escapeText(fmt.Sprintf("%s — %.0f км", layer.Label, layer.LengthKM)),
-		))
-	}
-
-	legendBottom := 184.0
-	if len(doc.Layers) > 0 {
-		legendBottom += float64(len(doc.Layers)-1)*legendLineSpacing + 24
-	}
+	legend, legendBottom := buildLegend(doc.Layers, sidebarX, plotTopY+10, sidebarWidth-56)
 
 	statCards, statCardsBottom := buildStatCards(doc.StatCards, sidebarX, legendBottom+20, sidebarWidth-56)
 	charts, chartsBottom := buildCharts(doc.Charts, sidebarX, statCardsBottom+18, sidebarWidth-56)
 	alerts, alertsBottom := buildAlerts(doc.Alerts, sidebarX, chartsBottom+18, sidebarWidth-56)
-
-	var meta strings.Builder
 	metaStartY := math.Max(608.0, alertsBottom+26)
-	for i, line := range doc.Meta {
-		y := metaStartY + float64(i)*22
-		meta.WriteString(fmt.Sprintf(
-			`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#4f6d7a">%s</text>`+"\n",
-			sidebarX,
-			y,
-			escapeText(line),
-		))
+	meta, metaBottom := buildMetaCard(doc.Meta, sidebarX, metaStartY, sidebarWidth-56)
+
+	documentHeight := canvasHeight
+	sidebarBottom := max(max(legendBottom, statCardsBottom), max(chartsBottom, alertsBottom))
+	sidebarBottom = max(sidebarBottom, metaBottom)
+	requiredHeight := int(math.Ceil(sidebarBottom + padding))
+	if requiredHeight > documentHeight {
+		documentHeight = requiredHeight
 	}
 
-	scaleBar := buildScaleBar(minLat, maxLat, minLon, maxLon, plotWidth, scale, padding, float64(canvasHeight)-padding-scaleBarYGap)
+	scaleBar := buildScaleBar(minLat, maxLat, minLon, maxLon, plotWidth, scale, padding, float64(documentHeight)-padding-scaleBarYGap)
 
 	svg := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">
   <rect width="100%%" height="100%%" fill="#f7f4ea"/>
   <rect x="20" y="20" width="%d" height="%d" rx="28" fill="#fcfbf7" stroke="#d6d0c4"/>
   <rect x="%.0f" y="20" width="%.0f" height="%d" rx="24" fill="#f0ece2" stroke="#d6d0c4"/>
-  <text x="56" y="58" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#16324f">%s</text>
-  <text x="56" y="86" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4f6d7a">%s</text>
-  <text x="56" y="112" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#6b7a87">SVG содержит исходную полилинию, фрактальные итерации, масштаб и длину по слоям.</text>
+  <g>
+%s  </g>
   <g>
 %s  </g>
   <g>
@@ -231,18 +200,17 @@ func DrawDocument(doc Document, filename string) error {
   <g>
 %s  </g>
 </svg>
-`, canvasWidth, canvasHeight, canvasWidth, canvasHeight,
-		canvasWidth-40, canvasHeight-40,
-		padding+plotWidth+8, sidebarWidth-16, canvasHeight-40,
-		escapeText(doc.Title),
-		escapeText(doc.Subtitle),
+`, canvasWidth, documentHeight, canvasWidth, documentHeight,
+		canvasWidth-40, documentHeight-40,
+		padding+plotWidth+8, sidebarWidth-16, documentHeight-40,
+		header,
 		layers.String(),
 		highlights.String(),
-		legend.String(),
+		legend,
 		statCards,
 		charts,
 		alerts,
-		meta.String(),
+		meta,
 		scaleBar,
 	)
 
@@ -277,6 +245,164 @@ func projectPolyline(points []geometry.LatLon, minLat, minLon, originX, originY,
 		polyline.WriteString(fmt.Sprintf("%.2f,%.2f", x, y))
 	}
 	return polyline.String()
+}
+
+func buildHeader(title, subtitle string, x, width float64) (string, float64) {
+	titleLines := wrapText(title, estimateCharLimit(width, 30))
+	if len(titleLines) == 0 {
+		titleLines = []string{title}
+	}
+
+	subtitleLines := wrapText(subtitle, estimateCharLimit(width, 14))
+	noteLines := wrapText(defaultHeaderNote, estimateCharLimit(width, 13))
+
+	var out strings.Builder
+	titleY := 58.0
+	for i, line := range titleLines {
+		y := titleY + float64(i)*34
+		out.WriteString(fmt.Sprintf(
+			`  <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#16324f">%s</text>`+"\n",
+			x, y, escapeText(line),
+		))
+	}
+
+	currentY := titleY + float64(len(titleLines))*34 - 6
+	for i, line := range subtitleLines {
+		y := currentY + 22 + float64(i)*18
+		out.WriteString(fmt.Sprintf(
+			`  <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4f6d7a">%s</text>`+"\n",
+			x, y, escapeText(line),
+		))
+	}
+
+	currentY += 22 + float64(max(len(subtitleLines)-1, 0))*18
+	for i, line := range noteLines {
+		y := currentY + 26 + float64(i)*16
+		out.WriteString(fmt.Sprintf(
+			`  <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#6b7a87">%s</text>`+"\n",
+			x, y, escapeText(line),
+		))
+	}
+
+	if len(noteLines) == 0 {
+		return out.String(), currentY + 10
+	}
+
+	return out.String(), currentY + 26 + float64(len(noteLines)-1)*16
+}
+
+func buildLegend(layers []Layer, x, titleY, width float64) (string, float64) {
+	if len(layers) == 0 {
+		return "", titleY
+	}
+
+	var out strings.Builder
+	out.WriteString(fmt.Sprintf(
+		`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#16324f">Слои и длины</text>`+"\n",
+		x, titleY,
+	))
+
+	currentY := titleY + 26
+	labelLimit := estimateCharLimit(width-58, 13)
+	for idx, layer := range layers {
+		labelLines := wrapText(layer.Label, labelLimit)
+		if len(labelLines) == 0 {
+			labelLines = []string{layer.Label}
+		}
+
+		rowTop := currentY
+		swatchY := rowTop + 12
+		out.WriteString(fmt.Sprintf(
+			`    <line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="%s" stroke-width="%.2f" stroke-opacity="%.2f"%s/>`+"\n",
+			x,
+			swatchY,
+			x+34,
+			swatchY,
+			escapeText(layerStroke(layer)),
+			layerWidth(layer),
+			layerOpacity(layer),
+			layerDashAttribute(layer),
+		))
+
+		labelX := x + 46
+		for i, line := range labelLines {
+			lineY := rowTop + 10 + float64(i)*15
+			out.WriteString(fmt.Sprintf(
+				`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#16324f">%s</text>`+"\n",
+				labelX, lineY, escapeText(line),
+			))
+		}
+
+		lengthY := rowTop + 12 + float64(len(labelLines))*15
+		out.WriteString(fmt.Sprintf(
+			`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#6b7a87">%.0f км</text>`+"\n",
+			labelX, lengthY, layer.LengthKM,
+		))
+
+		rowBottom := lengthY + 10
+		if idx < len(layers)-1 {
+			out.WriteString(fmt.Sprintf(
+				`    <line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="#ddd6c8" stroke-width="1"/>`+"\n",
+				x, rowBottom+4, x+width, rowBottom+4,
+			))
+		}
+		currentY = rowBottom + 16
+	}
+
+	return out.String(), currentY - 4
+}
+
+func buildMetaCard(lines []string, x, y, width float64) (string, float64) {
+	if len(lines) == 0 {
+		return "", y
+	}
+
+	wrappedEntries := make([][]string, 0, len(lines))
+	totalLineCount := 0
+	lineLimit := estimateCharLimit(width-28, 12)
+	for _, line := range lines {
+		wrapped := wrapText(line, lineLimit)
+		if len(wrapped) == 0 {
+			continue
+		}
+		wrappedEntries = append(wrappedEntries, wrapped)
+		totalLineCount += len(wrapped)
+	}
+	if len(wrappedEntries) == 0 {
+		return "", y
+	}
+
+	height := 42.0 + float64(totalLineCount)*16 + float64(len(wrappedEntries)-1)*12 + 12
+	var out strings.Builder
+	out.WriteString(fmt.Sprintf(
+		`    <rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" rx="18" fill="#f8f6ef" stroke="#d6d0c4"/>`+"\n",
+		x, y, width, height,
+	))
+	out.WriteString(fmt.Sprintf(
+		`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#16324f">Сводка</text>`+"\n",
+		x+14, y+20,
+	))
+
+	currentY := y + 42
+	for entryIndex, entry := range wrappedEntries {
+		for lineIndex, line := range entry {
+			lineY := currentY + float64(lineIndex)*16
+			out.WriteString(fmt.Sprintf(
+				`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">%s</text>`+"\n",
+				x+14, lineY, escapeText(line),
+			))
+		}
+		currentY += float64(len(entry)) * 16
+		if entryIndex < len(wrappedEntries)-1 {
+			out.WriteString(fmt.Sprintf(
+				`    <line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="#e7e1d5" stroke-width="1"/>`+"\n",
+				x+14, currentY+4, x+width-14, currentY+4,
+			))
+			currentY += 12
+		}
+	}
+
+	return out.String(), y + height
 }
 
 func buildCharts(charts []Chart, x, y, width float64) (string, float64) {
@@ -314,7 +440,18 @@ func buildStatCards(cards []StatCard, x, y, width float64) (string, float64) {
 			continue
 		}
 
-		height := 42.0 + float64(len(card.Items))*20
+		labelLimit := estimateCharLimit(width-84, 12)
+		wrappedLabels := make([][]string, 0, len(card.Items))
+		height := 42.0
+		for _, item := range card.Items {
+			lines := wrapText(item.Label, labelLimit)
+			if len(lines) == 0 {
+				lines = []string{item.Label}
+			}
+			wrappedLabels = append(wrappedLabels, lines)
+			height += math.Max(float64(len(lines))*14+8, 20)
+		}
+
 		out.WriteString(fmt.Sprintf(
 			`    <rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" rx="18" fill="#f8f6ef" stroke="#d6d0c4"/>`+"\n",
 			x, currentY, width, height,
@@ -324,22 +461,28 @@ func buildStatCards(cards []StatCard, x, y, width float64) (string, float64) {
 			x+14, currentY+20, escapeText(card.Title),
 		))
 
+		rowY := currentY + 42
 		for i, item := range card.Items {
-			rowY := currentY + 42 + float64(i)*20
+			labelLines := wrappedLabels[i]
+			rowHeight := math.Max(float64(len(labelLines))*14+8, 20)
 			if i > 0 {
 				out.WriteString(fmt.Sprintf(
 					`    <line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="#e7e1d5" stroke-width="1"/>`+"\n",
-					x+14, rowY-10, x+width-14, rowY-10,
+					x+14, rowY-8, x+width-14, rowY-8,
+				))
+			}
+			for lineIndex, line := range labelLines {
+				lineY := rowY + 10 + float64(lineIndex)*14
+				out.WriteString(fmt.Sprintf(
+					`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">%s</text>`+"\n",
+					x+14, lineY, escapeText(line),
 				))
 			}
 			out.WriteString(fmt.Sprintf(
-				`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">%s</text>`+"\n",
-				x+14, rowY, escapeText(trimSidebarText(item.Label, 28)),
-			))
-			out.WriteString(fmt.Sprintf(
 				`    <text x="%.0f" y="%.0f" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="%s">%s</text>`+"\n",
-				x+width-14, rowY, escapeText(statTone(item.Tone)), escapeText(item.Value),
+				x+width-14, rowY+10, escapeText(statTone(item.Tone)), escapeText(item.Value),
 			))
+			rowY += rowHeight
 		}
 
 		currentY += height + gap
@@ -359,7 +502,21 @@ func buildAlerts(alerts []string, x, y, width float64) (string, float64) {
 	}
 
 	displayCount := min(len(alerts), 4)
-	height := 44.0 + float64(displayCount)*18
+	lineLimit := estimateCharLimit(width-28, 12)
+	wrappedAlerts := make([][]string, 0, displayCount)
+	lineCount := 0
+	for i := 0; i < displayCount; i++ {
+		lines := wrapText(alerts[i], lineLimit)
+		if len(lines) == 0 {
+			continue
+		}
+		if len(lines) > 2 {
+			lines = lines[:2]
+		}
+		wrappedAlerts = append(wrappedAlerts, lines)
+		lineCount += len(lines)
+	}
+	height := 44.0 + float64(lineCount)*16
 	if len(alerts) > displayCount {
 		height += 18
 	}
@@ -373,18 +530,20 @@ func buildAlerts(alerts []string, x, y, width float64) (string, float64) {
 		`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#9a3412">Предупреждения</text>`+"\n",
 		x+14, y+20,
 	))
-	for i := 0; i < displayCount; i++ {
-		lineY := y + 40 + float64(i)*18
-		out.WriteString(fmt.Sprintf(
-			`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#9a3412">%s</text>`+"\n",
-			x+14, lineY, escapeText(trimSidebarText(alerts[i], 44)),
-		))
+	currentY := y + 40
+	for _, lines := range wrappedAlerts {
+		for _, line := range lines {
+			out.WriteString(fmt.Sprintf(
+				`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#9a3412">%s</text>`+"\n",
+				x+14, currentY, escapeText(line),
+			))
+			currentY += 16
+		}
 	}
 	if len(alerts) > displayCount {
-		lineY := y + 40 + float64(displayCount)*18
 		out.WriteString(fmt.Sprintf(
 			`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#c2410c">... ещё %d</text>`+"\n",
-			x+14, lineY, len(alerts)-displayCount,
+			x+14, currentY, len(alerts)-displayCount,
 		))
 	}
 	return out.String(), y + height
@@ -614,15 +773,85 @@ func formatChartValue(value float64) string {
 	}
 }
 
-func legendSpacing(layerCount int) float64 {
-	switch {
-	case layerCount >= 11:
-		return 24
-	case layerCount >= 8:
-		return 28
-	default:
-		return 34
+func estimateCharLimit(width, fontSize float64) int {
+	if width <= 0 || fontSize <= 0 {
+		return 8
 	}
+
+	averageCharWidth := fontSize * 0.58
+	limit := int(math.Floor(width / averageCharWidth))
+	if limit < 8 {
+		return 8
+	}
+	return limit
+}
+
+func wrapText(value string, limit int) []string {
+	if limit < 2 {
+		return []string{strings.TrimSpace(value)}
+	}
+
+	paragraphs := strings.Split(strings.TrimSpace(value), "\n")
+	lines := make([]string, 0, len(paragraphs))
+	for _, paragraph := range paragraphs {
+		words := strings.Fields(paragraph)
+		if len(words) == 0 {
+			continue
+		}
+
+		current := ""
+		for _, word := range words {
+			if current == "" {
+				if runeCount(word) <= limit {
+					current = word
+					continue
+				}
+				chunks := splitLongWord(word, limit)
+				lines = append(lines, chunks[:len(chunks)-1]...)
+				current = chunks[len(chunks)-1]
+				continue
+			}
+
+			if runeCount(current)+1+runeCount(word) <= limit {
+				current += " " + word
+				continue
+			}
+
+			lines = append(lines, current)
+			if runeCount(word) <= limit {
+				current = word
+				continue
+			}
+
+			chunks := splitLongWord(word, limit)
+			lines = append(lines, chunks[:len(chunks)-1]...)
+			current = chunks[len(chunks)-1]
+		}
+
+		if current != "" {
+			lines = append(lines, current)
+		}
+	}
+
+	return lines
+}
+
+func splitLongWord(value string, limit int) []string {
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return []string{value}
+	}
+
+	chunks := make([]string, 0, (len(runes)+limit-1)/limit)
+	for start := 0; start < len(runes); start += limit {
+		end := min(start+limit, len(runes))
+		chunks = append(chunks, string(runes[start:end]))
+	}
+	return chunks
+}
+
+func runeCount(value string) int {
+	return len([]rune(value))
 }
 
 func buildScaleBar(minLat, maxLat, minLon, maxLon, plotWidth, scale, x, y float64) string {
@@ -753,12 +982,4 @@ func escapeText(value string) string {
 		`'`, "&apos;",
 	)
 	return replacer.Replace(value)
-}
-
-func trimSidebarText(value string, limit int) string {
-	runes := []rune(value)
-	if len(runes) <= limit || limit < 2 {
-		return value
-	}
-	return string(runes[:limit-1]) + "…"
 }

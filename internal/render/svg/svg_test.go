@@ -14,10 +14,10 @@ func TestDrawDocumentIncludesLayersScaleAndLengths(t *testing.T) {
 
 	err := DrawDocument(Document{
 		Title:    "Test Fractal",
-		Subtitle: "Overlay",
+		Subtitle: "Очень длинный подзаголовок для проверки аккуратного переноса текста внутри SVG-отчёта",
 		Layers: []Layer{
 			{
-				Label:       "Исходная полилиния",
+				Label:       "Исходная полилиния с длинной подписью",
 				Points:      []geometry.LatLon{{Lat: 0, Lon: 0}, {Lat: 0, Lon: 1}},
 				LengthKM:    100,
 				Stroke:      "#000000",
@@ -62,7 +62,7 @@ func TestDrawDocumentIncludesLayersScaleAndLengths(t *testing.T) {
 			},
 		},
 		Alerts: []string{"сегмент 1-2: 500 км"},
-		Meta:   []string{"Текущая длина: 140 км"},
+		Meta:   []string{"Текущая длина: 140 км и дополнительная строка для проверки переноса внутри карточки сводки"},
 	}, filename)
 	if err != nil {
 		t.Fatalf("DrawDocument returned error: %v", err)
@@ -84,6 +84,8 @@ func TestDrawDocumentIncludesLayersScaleAndLengths(t *testing.T) {
 		"Длина по итерациям",
 		"Измерено",
 		"Теория",
+		"Сводка",
+		"переноса внутри карточки",
 		"Контроль геометрии",
 		"Сегменты &gt; 450 км",
 		"Автоисправления",
@@ -92,6 +94,19 @@ func TestDrawDocumentIncludesLayersScaleAndLengths(t *testing.T) {
 	} {
 		if !strings.Contains(svg, expected) {
 			t.Fatalf("expected SVG to contain %q", expected)
+		}
+	}
+}
+
+func TestWrapTextRespectsLimit(t *testing.T) {
+	lines := wrapText("очень длинная строка для проверки переноса текста", 12)
+	if len(lines) < 2 {
+		t.Fatalf("expected wrapped output, got %+v", lines)
+	}
+
+	for _, line := range lines {
+		if runeCount(line) > 12 {
+			t.Fatalf("expected each wrapped line to fit limit, got %q", line)
 		}
 	}
 }
