@@ -227,7 +227,7 @@ func printCommandUsage(w io.Writer, command string) {
 	case cmdDimension:
 		fmt.Fprintf(w, "Использование: %s %s [flags]\n\n", bin, usagePath)
 		ux := getCommandUX(command)
-		fmt.Fprintln(w, "Считает эмпирическую box-counting размерность по organic-итерациям роста береговой линии, проверяет сходимость и сохраняет `koch_iter_0..N.svg`.")
+		fmt.Fprintln(w, "Считает эмпирическую box-counting размерность по organic-итерациям роста береговой линии, проверяет сходимость и сохраняет `dimension_iter_0..N.svg`.")
 		fmt.Fprintln(w, "")
 		fmt.Fprintf(w, "Режим: %s\n", ux.Mode)
 		fmt.Fprintf(w, "Примечание: %s\n", ux.RuntimeNote)

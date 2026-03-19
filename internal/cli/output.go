@@ -1,17 +1,33 @@
 package cli
 
 import (
+	"coastal-geometry/internal/domain/coastline"
+	"coastal-geometry/internal/domain/fractal"
 	"coastal-geometry/internal/domain/generators/koch"
 	"coastal-geometry/internal/domain/geometry"
 	svgrender "coastal-geometry/internal/render/svg"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-func writeCoastlineSVG(points, renderPoints []geometry.LatLon, output, defaultName, command string) error {
-	filename, err := resolveOutputPath(output, defaultName, command)
+type fractalSeriesOptions struct {
+	Title            string
+	Prefix           string
+	MetricsBaseName  string
+	Iterations       int
+	OriginalBase     []geometry.LatLon
+	ModelBase        []geometry.LatLon
+	OrganicOptions   *koch.OrganicOptions
+	IncludeDimension bool
+	TheoryByIter     map[int]koch.TheoryCheckSample
+	Builder          func([]geometry.LatLon, int) []geometry.LatLon
+}
+
+func writeCoastlineSVG(points, renderPoints []geometry.LatLon, output, defaultName string, ctx exportContext) error {
+	filename, err := resolveOutputPath(output, defaultName, ctx.Command)
 	if err != nil {
 		return err
 	}
@@ -20,57 +36,129 @@ func writeCoastlineSVG(points, renderPoints []geometry.LatLon, output, defaultNa
 		renderPoints = points
 	}
 
+	realSummary := summarizePolyline(points)
+	renderSummary := summarizePolyline(renderPoints)
+	visualHints := coastline.BuildVisualizationHints(points)
+	validationSummary := coastline.BuildValidationSummary(points)
+
 	if err := svgrender.DrawDocument(svgrender.Document{
 		Title:    "Береговая линия",
-		Subtitle: "Реальные загруженные данные: исходная географическая полилиния; SVG использует упрощённую копию для рендера",
+		Subtitle: "Реальные загруженные данные: исходная географическая полилиния; SVG использует упрощённую копию только для рендера",
 		Layers: []svgrender.Layer{
 			{
 				Label:       "Реальная исходная полилиния",
 				Points:      renderPoints,
-				LengthKM:    geometry.PolylineLength(points),
+				LengthKM:    realSummary.LengthKM,
 				Stroke:      "#1f6f8b",
 				StrokeWidth: 3.5,
 				Opacity:     1,
 			},
 		},
+		Highlights: makeCoastlineHighlights(visualHints),
+		StatCards:  makeValidationStatCards(ctx.Validation, validationSummary),
+		Alerts:     makeCoastlineAlerts(ctx.Validation, visualHints),
 		Meta: []string{
-			fmt.Sprintf("Точек в расчёте: %d", len(points)),
-			fmt.Sprintf("Точек в SVG: %d", len(renderPoints)),
-			fmt.Sprintf("Сегментов в расчёте: %d", max(len(points)-1, 0)),
+			fmt.Sprintf("Точек в расчёте: %d", realSummary.PointsCount),
+			fmt.Sprintf("Точек в SVG: %d", renderSummary.PointsCount),
+			fmt.Sprintf("Длина в расчёте: %.0f км", realSummary.LengthKM),
+			fmt.Sprintf("Длина SVG-копии: %.0f км", renderSummary.LengthKM),
+			fmt.Sprintf("Подсвечено длинных сегментов: %d", len(visualHints.LongSegments)),
+			fmt.Sprintf("Валидация: %d исправлений, %d предупреждений", len(ctx.Validation.Fixes), len(ctx.Validation.Warnings)),
 		},
 	}, filename); err != nil {
 		return err
 	}
 
+	metricsPath := metricsPathForSVG(filename)
+	metrics := coastlineArtifactMetrics{
+		GeneratedAt:          nowTimestamp(),
+		Command:              canonicalCommandPath(ctx.Command),
+		Dataset:              ctx.Dataset,
+		Source:               ctx.Source,
+		SVGFile:              filename,
+		Real:                 realSummary,
+		Render:               renderSummary,
+		RenderSimplification: summarizeSimplification(points, renderPoints),
+		Highlights:           coastlineHighlightsMetricsFromHints(visualHints),
+		Validation:           validationMetricsFromData(ctx.Validation, validationSummary),
+	}
+	if err := writeMetricsJSON(metricsPath, metrics); err != nil {
+		return err
+	}
+
 	fmt.Printf("SVG saved to %s\n", filename)
+	fmt.Printf("Metrics saved to %s\n", metricsPath)
 	return nil
 }
 
-func writeKochSVGSeries(base []geometry.LatLon, iterations int, output string) error {
-	return writeKochLikeSVGSeries(base, iterations, output, "koch_iter", "Классическая кривая Коха", func(points []geometry.LatLon, iter int) []geometry.LatLon {
-		return koch.KochCurve(points, iter)
-	})
+func writeKochSVGSeries(originalBase, modelBase []geometry.LatLon, iterations int, output string, ctx exportContext) error {
+	report := koch.CheckTheoryConsistency(modelBase, iterations)
+	theoryByIter := make(map[int]koch.TheoryCheckSample, len(report.Samples))
+	for _, sample := range report.Samples {
+		theoryByIter[sample.Iteration] = sample
+	}
+
+	return writeFractalSeries(fractalSeriesOptions{
+		Title:           "Классическая кривая Коха",
+		Prefix:          "koch_iter",
+		MetricsBaseName: "koch",
+		Iterations:      iterations,
+		OriginalBase:    originalBase,
+		ModelBase:       modelBase,
+		TheoryByIter:    theoryByIter,
+		Builder: func(points []geometry.LatLon, iter int) []geometry.LatLon {
+			return koch.KochCurve(points, iter)
+		},
+	}, output, ctx)
 }
 
-func writeOrganicKochSVGSeries(base []geometry.LatLon, iterations int, output string, opts koch.OrganicOptions, prefix string) error {
-	return writeKochLikeSVGSeries(base, iterations, output, prefix, "Organic Koch", func(points []geometry.LatLon, iter int) []geometry.LatLon {
-		return koch.OrganicKochCurve(points, iter, opts)
-	})
+func writeOrganicKochSVGSeries(originalBase, modelBase []geometry.LatLon, iterations int, output string, opts koch.OrganicOptions, prefix, metricsBaseName string, includeDimension bool, ctx exportContext) error {
+	return writeFractalSeries(fractalSeriesOptions{
+		Title:            "Organic Koch",
+		Prefix:           prefix,
+		MetricsBaseName:  metricsBaseName,
+		Iterations:       iterations,
+		OriginalBase:     originalBase,
+		ModelBase:        modelBase,
+		OrganicOptions:   &opts,
+		IncludeDimension: includeDimension,
+		Builder: func(points []geometry.LatLon, iter int) []geometry.LatLon {
+			return koch.OrganicKochCurve(points, iter, opts)
+		},
+	}, output, ctx)
 }
 
-func writeKochLikeSVGSeries(base []geometry.LatLon, iterations int, output, prefix, title string, builder func([]geometry.LatLon, int) []geometry.LatLon) error {
+func writeFractalSeries(opts fractalSeriesOptions, output string, ctx exportContext) error {
 	outputDir, err := resolveSeriesOutputDir(output)
 	if err != nil {
 		return err
 	}
 
+	originalBase := opts.OriginalBase
+	if len(originalBase) == 0 {
+		originalBase = opts.ModelBase
+	}
+	modelBase := opts.ModelBase
+	if len(modelBase) == 0 {
+		modelBase = originalBase
+	}
+
+	referenceRender := simplifyForSeriesSVG(originalBase).Points
+	if len(referenceRender) == 0 {
+		referenceRender = originalBase
+	}
+
+	iterations := opts.Iterations
+
 	curves := make([][]geometry.LatLon, iterations+1)
 	renderCurves := make([][]geometry.LatLon, iterations+1)
 	lengths := make([]float64, iterations+1)
+	dimensions := make([]*dimensionMetrics, iterations+1)
 	maxRawPoints := 0
 	maxRenderPoints := 0
+
 	for iter := 0; iter <= iterations; iter++ {
-		curves[iter] = builder(base, iter)
+		curves[iter] = opts.Builder(modelBase, iter)
 		renderCurves[iter] = simplifyForSeriesSVG(curves[iter]).Points
 		lengths[iter] = geometry.PolylineLength(curves[iter])
 		if len(curves[iter]) > maxRawPoints {
@@ -79,62 +167,139 @@ func writeKochLikeSVGSeries(base []geometry.LatLon, iterations int, output, pref
 		if len(renderCurves[iter]) > maxRenderPoints {
 			maxRenderPoints = len(renderCurves[iter])
 		}
+		if opts.IncludeDimension {
+			dimensions[iter] = dimensionMetricsFromAnalysis(fractal.AnalyzeBoxCounting(curves[iter]))
+		}
 	}
 
 	if maxRawPoints > maxRenderPoints {
 		fmt.Printf("info: synthetic SVG simplification: max layer %d -> %d points for rendering\n", maxRawPoints, maxRenderPoints)
 	}
 
+	referenceSummary := summarizePolyline(originalBase)
+	referenceRenderSummary := summarizePolyline(referenceRender)
+	modelSummary := summarizePolyline(modelBase)
+	modelSimplification := summarizeSimplification(originalBase, modelBase)
+	visualHints := coastline.BuildVisualizationHints(originalBase)
+	validationSummary := coastline.BuildValidationSummary(originalBase)
+
+	iterationsMetrics := make([]fractalIterationMetrics, 0, iterations+1)
 	for iter := 0; iter <= iterations; iter++ {
-		filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d.svg", prefix, iter))
-		layers := makeFractalLayers(renderCurves[:iter+1], lengths[:iter+1])
+		filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d.svg", opts.Prefix, iter))
+		layers := makeFractalLayers(referenceRender, referenceSummary.LengthKM, renderCurves[:iter+1], lengths[:iter+1])
+		charts := makeSeriesCharts(iter, lengths[:iter+1], dimensions[:iter+1], opts.TheoryByIter)
 		meta := []string{
-			fmt.Sprintf("Показано итераций: %d", iter+1),
-			fmt.Sprintf("Текущая итерация: %d", iter),
-			fmt.Sprintf("Текущая длина: %.0f км", lengths[iter]),
-			fmt.Sprintf("Точек в расчёте: %d", len(curves[iter])),
-			fmt.Sprintf("Точек в SVG текущего слоя: %d", len(renderCurves[iter])),
+			fmt.Sprintf("Реальная линия: %.0f км, %d т.", referenceSummary.LengthKM, referenceSummary.PointsCount),
+			fmt.Sprintf("База модели: %.0f км, %d т. (%+.1f%% к реальной)", modelSummary.LengthKM, modelSummary.PointsCount, modelSimplification.LengthDeltaPercent),
+			fmt.Sprintf("Текущий слой: %.0f км, %d т. расчёт / %d т. SVG", lengths[iter], len(curves[iter]), len(renderCurves[iter])),
 		}
+		if dimension := dimensions[iter]; dimension != nil {
+			if dimension.Valid {
+				meta = append(meta, fmt.Sprintf("D: %.5f, R²=%.4f, стаб=%t", dimension.Dimension, dimension.RegressionRSquared, dimension.StableAcrossScales))
+			} else {
+				meta = append(meta, fmt.Sprintf("D: n/a, масштабов=%d", dimension.SampleCount))
+			}
+		} else if theory, ok := opts.TheoryByIter[iter]; ok {
+			meta = append(meta, fmt.Sprintf("Теория: %.0f км, ошибка %.2f%%", theory.TheoreticalKM, theory.ErrorPercent))
+		}
+
 		if err := svgrender.DrawDocument(svgrender.Document{
-			Title:    fmt.Sprintf("%s — итерация %d", title, iter),
-			Subtitle: "Итерация 0 — реальная базовая полилиния; последующие итерации — синтетическая модель; SVG-слои упрощены для рендера",
-			Layers:   layers,
-			Meta:     meta,
+			Title:     fmt.Sprintf("%s — итерация %d", opts.Title, iter),
+			Subtitle:  "Серая пунктирная линия показывает реальную загруженную береговую линию; цветные слои строятся от упрощённой базы модели и упрощены для рендера",
+			Layers:    layers,
+			StatCards: makeValidationStatCards(ctx.Validation, validationSummary),
+			Charts:    charts,
+			Meta:      meta,
 		}, filename); err != nil {
 			return err
 		}
+
+		iterationMetrics := fractalIterationMetrics{
+			Iteration:           iter,
+			SVGFile:             filename,
+			PointsCount:         len(curves[iter]),
+			RenderPointsCount:   len(renderCurves[iter]),
+			LengthKM:            lengths[iter],
+			RelativeToModelBase: safeRatio(lengths[iter], modelSummary.LengthKM),
+			RelativeToReference: safeRatio(lengths[iter], referenceSummary.LengthKM),
+			Dimension:           dimensions[iter],
+		}
+		if theory, ok := opts.TheoryByIter[iter]; ok {
+			iterationMetrics.Theory = &theoryMetrics{
+				ExpectedLengthKM: theory.TheoreticalKM,
+				ErrorKM:          theory.ErrorKM,
+				ErrorPercent:     theory.ErrorPercent,
+			}
+		}
+		iterationsMetrics = append(iterationsMetrics, iterationMetrics)
+
 		fmt.Printf("SVG saved to %s\n", filename)
 	}
+
+	metricsPath := metricsPathForSeries(outputDir, opts.MetricsBaseName)
+	seriesMetrics := fractalSeriesArtifactMetrics{
+		GeneratedAt:         nowTimestamp(),
+		Command:             canonicalCommandPath(ctx.Command),
+		Dataset:             ctx.Dataset,
+		Source:              ctx.Source,
+		Title:               opts.Title,
+		OutputDir:           outputDir,
+		ReferenceCoastline:  referenceSummary,
+		ReferenceRender:     referenceRenderSummary,
+		ModelBase:           modelSummary,
+		ModelSimplification: modelSimplification,
+		Iterations:          iterationsMetrics,
+		Highlights:          coastlineHighlightsMetricsFromHints(visualHints),
+		Validation:          validationMetricsFromData(ctx.Validation, validationSummary),
+	}
+	if opts.OrganicOptions != nil {
+		seriesMetrics.OrganicOptions = &organicOptionsMetrics{
+			Seed:            opts.OrganicOptions.Seed,
+			AngleJitterDeg:  opts.OrganicOptions.AngleJitterDeg,
+			HeightJitterPct: opts.OrganicOptions.HeightJitterPct,
+		}
+	}
+	if err := writeMetricsJSON(metricsPath, seriesMetrics); err != nil {
+		return err
+	}
+
+	fmt.Printf("Metrics saved to %s\n", metricsPath)
 	return nil
 }
 
-func makeFractalLayers(curves [][]geometry.LatLon, lengths []float64) []svgrender.Layer {
+func makeFractalLayers(reference []geometry.LatLon, referenceLength float64, curves [][]geometry.LatLon, lengths []float64) []svgrender.Layer {
 	palette := []string{
-		"#7a8b99",
-		"#2c7a7b",
 		"#1f6f8b",
+		"#2c7a7b",
 		"#c06c3f",
 		"#8b3f5c",
 		"#6f5f1f",
 		"#3f6b4b",
+		"#4a5d23",
 	}
 
-	layers := make([]svgrender.Layer, 0, len(curves))
+	layers := []svgrender.Layer{
+		{
+			Label:       "Реальная загруженная полилиния (справочно)",
+			Points:      reference,
+			LengthKM:    referenceLength,
+			Stroke:      "#7a8b99",
+			StrokeWidth: 1.8,
+			Opacity:     0.85,
+			DashArray:   "8 6",
+		},
+	}
+
 	for i := range curves {
-		label := fmt.Sprintf("Итерация %d", i)
-		strokeWidth := 2.0
-		opacity := 0.34 + float64(i)*0.08
+		label := fmt.Sprintf("Синтетическая итерация %d", i)
+		if i == 0 {
+			label = "Упрощённая база модели (итерация 0)"
+		}
+
+		strokeWidth := 2.1
+		opacity := 0.38 + float64(i)*0.08
 		if opacity > 1 {
 			opacity = 1
-		}
-		dashArray := ""
-		if i == 0 {
-			label = "Реальная базовая полилиния"
-			strokeWidth = 1.8
-			opacity = 0.9
-			dashArray = "8 6"
-		} else {
-			label = fmt.Sprintf("Синтетическая итерация %d", i)
 		}
 		if i == len(curves)-1 {
 			strokeWidth = 3.6
@@ -148,10 +313,198 @@ func makeFractalLayers(curves [][]geometry.LatLon, lengths []float64) []svgrende
 			Stroke:      palette[i%len(palette)],
 			StrokeWidth: strokeWidth,
 			Opacity:     opacity,
-			DashArray:   dashArray,
 		})
 	}
+
 	return layers
+}
+
+func safeRatio(value, base float64) float64 {
+	if base == 0 {
+		return 0
+	}
+	return value / base
+}
+
+func makeCoastlineHighlights(hints coastline.VisualizationHints) []svgrender.HighlightSegment {
+	highlights := make([]svgrender.HighlightSegment, 0, len(hints.LongSegments))
+	for _, segment := range hints.LongSegments {
+		highlights = append(highlights, svgrender.HighlightSegment{
+			Start:       segment.Start,
+			End:         segment.End,
+			Stroke:      "#c2410c",
+			StrokeWidth: 4.8,
+			Opacity:     0.95,
+		})
+	}
+	return highlights
+}
+
+func makeCoastlineAlerts(report coastline.ValidationReport, hints coastline.VisualizationHints) []string {
+	alerts := make([]string, 0, len(report.Warnings)+2)
+	if len(hints.LongSegments) > 0 {
+		alerts = append(alerts, fmt.Sprintf("Длинные сегменты > 450 км: %d", len(hints.LongSegments)))
+		for i, segment := range hints.LongSegments {
+			if i >= 3 {
+				break
+			}
+			alerts = append(alerts, fmt.Sprintf("сегмент %d-%d: %.0f км", segment.StartIndex, segment.EndIndex, segment.LengthKM))
+		}
+	}
+
+	for _, warning := range report.Warnings {
+		if strings.HasPrefix(warning, "сегмент ") {
+			continue
+		}
+		alerts = append(alerts, warning)
+		if len(alerts) >= 5 {
+			break
+		}
+	}
+
+	if len(alerts) == 0 && len(report.Fixes) > 0 {
+		alerts = append(alerts, fmt.Sprintf("Автоисправления: %d", len(report.Fixes)))
+	}
+
+	return alerts
+}
+
+func makeValidationStatCards(report coastline.ValidationReport, summary coastline.ValidationSummary) []svgrender.StatCard {
+	longSegments, threshold := validationIssueCount(summary, coastline.WarningTypeLongSegment)
+	duplicateLocations, _ := validationIssueCount(summary, coastline.WarningTypeDuplicateLocation)
+
+	return []svgrender.StatCard{
+		{
+			Title: "Контроль геометрии",
+			Items: []svgrender.StatItem{
+				{
+					Label: fmt.Sprintf("Сегменты > %.0f км", threshold),
+					Value: fmt.Sprintf("%d", longSegments),
+					Tone:  warningStatTone(longSegments),
+				},
+				{
+					Label: "Повторы ориентиров",
+					Value: fmt.Sprintf("%d", duplicateLocations),
+					Tone:  warningStatTone(duplicateLocations),
+				},
+				{
+					Label: "Автоисправления",
+					Value: fmt.Sprintf("%d", len(report.Fixes)),
+					Tone:  fixStatTone(len(report.Fixes)),
+				},
+			},
+		},
+	}
+}
+
+func validationIssueCount(summary coastline.ValidationSummary, warningType string) (int, float64) {
+	for _, issue := range summary.Issues {
+		if issue.WarningType == warningType {
+			return issue.Count, issue.ThresholdKM
+		}
+	}
+	return 0, 0
+}
+
+func warningStatTone(count int) string {
+	if count > 0 {
+		return "#c2410c"
+	}
+	return "#3f6b4b"
+}
+
+func fixStatTone(count int) string {
+	if count > 0 {
+		return "#1f6f8b"
+	}
+	return "#3f6b4b"
+}
+
+func makeSeriesCharts(currentIter int, lengths []float64, dimensions []*dimensionMetrics, theoryByIter map[int]koch.TheoryCheckSample) []svgrender.Chart {
+	charts := []svgrender.Chart{
+		buildLengthChart(lengths, theoryByIter),
+	}
+
+	dimensionChart := buildDimensionChart(dimensions)
+	if len(dimensionChart.Series) > 0 {
+		charts = append(charts, dimensionChart)
+	}
+
+	if currentIter == 0 {
+		return charts
+	}
+	return charts
+}
+
+func buildLengthChart(lengths []float64, theoryByIter map[int]koch.TheoryCheckSample) svgrender.Chart {
+	chart := svgrender.Chart{
+		Title: "Длина по итерациям",
+		Series: []svgrender.ChartSeries{
+			{
+				Label:  "Измерено",
+				Values: append([]float64(nil), lengths...),
+				Stroke: "#1f6f8b",
+			},
+		},
+	}
+
+	if len(theoryByIter) > 0 {
+		theory := make([]float64, len(lengths))
+		for i := range theory {
+			if sample, ok := theoryByIter[i]; ok {
+				theory[i] = sample.TheoreticalKM
+				continue
+			}
+			theory[i] = math.NaN()
+		}
+		chart.Series = append(chart.Series, svgrender.ChartSeries{
+			Label:     "Теория",
+			Values:    theory,
+			Stroke:    "#c06c3f",
+			DashArray: "5 4",
+		})
+	}
+
+	return chart
+}
+
+func buildDimensionChart(dimensions []*dimensionMetrics) svgrender.Chart {
+	values := make([]float64, len(dimensions))
+	hasValues := false
+	for i, dimension := range dimensions {
+		if dimension == nil || !dimension.Valid {
+			values[i] = math.NaN()
+			continue
+		}
+		values[i] = dimension.Dimension
+		hasValues = true
+	}
+	if !hasValues {
+		return svgrender.Chart{}
+	}
+
+	theory := make([]float64, len(values))
+	theoreticalDimension := math.Log(4) / math.Log(3)
+	for i := range theory {
+		theory[i] = theoreticalDimension
+	}
+
+	return svgrender.Chart{
+		Title: "Размерность D",
+		Series: []svgrender.ChartSeries{
+			{
+				Label:  "Оценка",
+				Values: values,
+				Stroke: "#8b3f5c",
+			},
+			{
+				Label:     "Теория",
+				Values:    theory,
+				Stroke:    "#6f5f1f",
+				DashArray: "5 4",
+			},
+		},
+	}
 }
 
 func resolveOutputPath(output, defaultName, command string) (string, error) {

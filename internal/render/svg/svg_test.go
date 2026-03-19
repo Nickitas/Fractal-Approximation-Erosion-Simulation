@@ -34,7 +34,35 @@ func TestDrawDocumentIncludesLayersScaleAndLengths(t *testing.T) {
 				Opacity:     1,
 			},
 		},
-		Meta: []string{"Текущая длина: 140 км"},
+		Charts: []Chart{
+			{
+				Title: "Длина по итерациям",
+				Series: []ChartSeries{
+					{Label: "Измерено", Values: []float64{100, 140}, Stroke: "#000000"},
+					{Label: "Теория", Values: []float64{100, 133.33}, Stroke: "#ff0000", DashArray: "5 4"},
+				},
+			},
+		},
+		Highlights: []HighlightSegment{
+			{
+				Start:       geometry.LatLon{Lat: 0, Lon: 0.2},
+				End:         geometry.LatLon{Lat: 0.2, Lon: 0.5},
+				Stroke:      "#c2410c",
+				StrokeWidth: 4,
+				Opacity:     1,
+			},
+		},
+		StatCards: []StatCard{
+			{
+				Title: "Контроль геометрии",
+				Items: []StatItem{
+					{Label: "Сегменты > 450 км", Value: "1", Tone: "#c2410c"},
+					{Label: "Автоисправления", Value: "0", Tone: "#3f6b4b"},
+				},
+			},
+		},
+		Alerts: []string{"сегмент 1-2: 500 км"},
+		Meta:   []string{"Текущая длина: 140 км"},
 	}, filename)
 	if err != nil {
 		t.Fatalf("DrawDocument returned error: %v", err)
@@ -53,6 +81,14 @@ func TestDrawDocumentIncludesLayersScaleAndLengths(t *testing.T) {
 		"100 км",
 		"140 км",
 		"stroke-dasharray",
+		"Длина по итерациям",
+		"Измерено",
+		"Теория",
+		"Контроль геометрии",
+		"Сегменты &gt; 450 км",
+		"Автоисправления",
+		"Предупреждения",
+		"сегмент 1-2: 500 км",
 	} {
 		if !strings.Contains(svg, expected) {
 			t.Fatalf("expected SVG to contain %q", expected)

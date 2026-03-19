@@ -9,14 +9,14 @@ func runAllCommand(app *App) error {
 	if sanity.Checked && !sanity.Valid {
 		invalid = true
 	}
-	if err := writeCoastlineSVG(app.Base, app.RenderBase, app.Config.OutputPath, "coastline.svg", app.Config.Command); err != nil {
+	if err := writeCoastlineSVG(app.Base, app.RenderBase, app.Config.OutputPath, "coastline.svg", newExportContext(app)); err != nil {
 		return err
 	}
 
 	runParadoxCommand(app)
 	runKochOrganicMetrics(app.ModelBase, app.Config.Iterations, organicKochOptions(app))
 
-	if err := writeOrganicKochSVGSeries(app.ModelBase, app.Config.Iterations, app.Config.OutputPath, organicKochOptions(app), "koch_iter"); err != nil {
+	if err := writeOrganicKochSVGSeries(app.Base, app.ModelBase, app.Config.Iterations, app.Config.OutputPath, organicKochOptions(app), "koch_iter", "koch-organic", false, newExportContext(app)); err != nil {
 		return err
 	}
 

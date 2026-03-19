@@ -28,11 +28,46 @@ type Layer struct {
 	DashArray   string
 }
 
+type HighlightSegment struct {
+	Start       geometry.LatLon
+	End         geometry.LatLon
+	Stroke      string
+	StrokeWidth float64
+	Opacity     float64
+}
+
+type ChartSeries struct {
+	Label     string
+	Values    []float64
+	Stroke    string
+	DashArray string
+}
+
+type Chart struct {
+	Title  string
+	Series []ChartSeries
+}
+
+type StatItem struct {
+	Label string
+	Value string
+	Tone  string
+}
+
+type StatCard struct {
+	Title string
+	Items []StatItem
+}
+
 type Document struct {
-	Title    string
-	Subtitle string
-	Layers   []Layer
-	Meta     []string
+	Title      string
+	Subtitle   string
+	Layers     []Layer
+	Highlights []HighlightSegment
+	StatCards  []StatCard
+	Charts     []Chart
+	Alerts     []string
+	Meta       []string
 }
 
 func DrawSVG(points []geometry.LatLon, filename, title string) error {
@@ -92,14 +127,43 @@ func DrawDocument(doc Document, filename string) error {
 		))
 	}
 
+	var highlights strings.Builder
+	for _, highlight := range doc.Highlights {
+		x1 := originX + (highlight.Start.Lon-minLon)*scale
+		y1 := originY + contentHeight - (highlight.Start.Lat-minLat)*scale
+		x2 := originX + (highlight.End.Lon-minLon)*scale
+		y2 := originY + contentHeight - (highlight.End.Lat-minLat)*scale
+
+		highlights.WriteString(fmt.Sprintf(
+			`    <line x1="%.2f" y1="%.2f" x2="%.2f" y2="%.2f" stroke="%s" stroke-width="%.2f" stroke-opacity="%.2f" stroke-linecap="round"/>`+"\n",
+			x1, y1, x2, y2,
+			escapeText(highlightStroke(highlight.Stroke)),
+			highlightWidth(highlight.StrokeWidth),
+			highlightOpacity(highlight.Opacity),
+		))
+		highlights.WriteString(fmt.Sprintf(
+			`    <circle cx="%.2f" cy="%.2f" r="3.2" fill="%s" fill-opacity="%.2f"/>`+"\n",
+			x1, y1,
+			escapeText(highlightStroke(highlight.Stroke)),
+			highlightOpacity(highlight.Opacity),
+		))
+		highlights.WriteString(fmt.Sprintf(
+			`    <circle cx="%.2f" cy="%.2f" r="3.2" fill="%s" fill-opacity="%.2f"/>`+"\n",
+			x2, y2,
+			escapeText(highlightStroke(highlight.Stroke)),
+			highlightOpacity(highlight.Opacity),
+		))
+	}
+
 	sidebarX := padding + plotWidth + 28
 	var legend strings.Builder
+	legendLineSpacing := legendSpacing(len(doc.Layers))
 	legend.WriteString(fmt.Sprintf(
 		`    <text x="%.0f" y="146" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#16324f">Слои и длины</text>`+"\n",
 		sidebarX,
 	))
 	for i, layer := range doc.Layers {
-		y := 184.0 + float64(i)*34
+		y := 184.0 + float64(i)*legendLineSpacing
 		legend.WriteString(fmt.Sprintf(
 			`    <line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="%s" stroke-width="%.2f" stroke-opacity="%.2f"%s/>`+"\n",
 			sidebarX,
@@ -119,9 +183,19 @@ func DrawDocument(doc Document, filename string) error {
 		))
 	}
 
+	legendBottom := 184.0
+	if len(doc.Layers) > 0 {
+		legendBottom += float64(len(doc.Layers)-1)*legendLineSpacing + 24
+	}
+
+	statCards, statCardsBottom := buildStatCards(doc.StatCards, sidebarX, legendBottom+20, sidebarWidth-56)
+	charts, chartsBottom := buildCharts(doc.Charts, sidebarX, statCardsBottom+18, sidebarWidth-56)
+	alerts, alertsBottom := buildAlerts(doc.Alerts, sidebarX, chartsBottom+18, sidebarWidth-56)
+
 	var meta strings.Builder
+	metaStartY := math.Max(608.0, alertsBottom+26)
 	for i, line := range doc.Meta {
-		y := 608.0 + float64(i)*22
+		y := metaStartY + float64(i)*22
 		meta.WriteString(fmt.Sprintf(
 			`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#4f6d7a">%s</text>`+"\n",
 			sidebarX,
@@ -148,6 +222,14 @@ func DrawDocument(doc Document, filename string) error {
 %s  </g>
   <g>
 %s  </g>
+  <g>
+%s  </g>
+  <g>
+%s  </g>
+  <g>
+%s  </g>
+  <g>
+%s  </g>
 </svg>
 `, canvasWidth, canvasHeight, canvasWidth, canvasHeight,
 		canvasWidth-40, canvasHeight-40,
@@ -155,7 +237,11 @@ func DrawDocument(doc Document, filename string) error {
 		escapeText(doc.Title),
 		escapeText(doc.Subtitle),
 		layers.String(),
+		highlights.String(),
 		legend.String(),
+		statCards,
+		charts,
+		alerts,
 		meta.String(),
 		scaleBar,
 	)
@@ -191,6 +277,352 @@ func projectPolyline(points []geometry.LatLon, minLat, minLon, originX, originY,
 		polyline.WriteString(fmt.Sprintf("%.2f,%.2f", x, y))
 	}
 	return polyline.String()
+}
+
+func buildCharts(charts []Chart, x, y, width float64) (string, float64) {
+	if len(charts) == 0 {
+		return "", y
+	}
+
+	height := 126.0
+	gap := 18.0
+	if len(charts) >= 2 {
+		height = 118.0
+	}
+
+	var out strings.Builder
+	currentY := y
+	for _, chart := range charts {
+		out.WriteString(buildChart(chart, x, currentY, width, height))
+		currentY += height + gap
+	}
+	return out.String(), currentY - gap
+}
+
+func buildStatCards(cards []StatCard, x, y, width float64) (string, float64) {
+	if len(cards) == 0 {
+		return "", y
+	}
+
+	var out strings.Builder
+	currentY := y
+	gap := 18.0
+	rendered := 0
+
+	for _, card := range cards {
+		if len(card.Items) == 0 {
+			continue
+		}
+
+		height := 42.0 + float64(len(card.Items))*20
+		out.WriteString(fmt.Sprintf(
+			`    <rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" rx="18" fill="#f8f6ef" stroke="#d6d0c4"/>`+"\n",
+			x, currentY, width, height,
+		))
+		out.WriteString(fmt.Sprintf(
+			`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#16324f">%s</text>`+"\n",
+			x+14, currentY+20, escapeText(card.Title),
+		))
+
+		for i, item := range card.Items {
+			rowY := currentY + 42 + float64(i)*20
+			if i > 0 {
+				out.WriteString(fmt.Sprintf(
+					`    <line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="#e7e1d5" stroke-width="1"/>`+"\n",
+					x+14, rowY-10, x+width-14, rowY-10,
+				))
+			}
+			out.WriteString(fmt.Sprintf(
+				`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">%s</text>`+"\n",
+				x+14, rowY, escapeText(trimSidebarText(item.Label, 28)),
+			))
+			out.WriteString(fmt.Sprintf(
+				`    <text x="%.0f" y="%.0f" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="%s">%s</text>`+"\n",
+				x+width-14, rowY, escapeText(statTone(item.Tone)), escapeText(item.Value),
+			))
+		}
+
+		currentY += height + gap
+		rendered++
+	}
+
+	if rendered == 0 {
+		return "", y
+	}
+
+	return out.String(), currentY - gap
+}
+
+func buildAlerts(alerts []string, x, y, width float64) (string, float64) {
+	if len(alerts) == 0 {
+		return "", y
+	}
+
+	displayCount := min(len(alerts), 4)
+	height := 44.0 + float64(displayCount)*18
+	if len(alerts) > displayCount {
+		height += 18
+	}
+
+	var out strings.Builder
+	out.WriteString(fmt.Sprintf(
+		`    <rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" rx="18" fill="#fff7ed" stroke="#fdba74"/>`+"\n",
+		x, y, width, height,
+	))
+	out.WriteString(fmt.Sprintf(
+		`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#9a3412">Предупреждения</text>`+"\n",
+		x+14, y+20,
+	))
+	for i := 0; i < displayCount; i++ {
+		lineY := y + 40 + float64(i)*18
+		out.WriteString(fmt.Sprintf(
+			`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#9a3412">%s</text>`+"\n",
+			x+14, lineY, escapeText(trimSidebarText(alerts[i], 44)),
+		))
+	}
+	if len(alerts) > displayCount {
+		lineY := y + 40 + float64(displayCount)*18
+		out.WriteString(fmt.Sprintf(
+			`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#c2410c">... ещё %d</text>`+"\n",
+			x+14, lineY, len(alerts)-displayCount,
+		))
+	}
+	return out.String(), y + height
+}
+
+func buildChart(chart Chart, x, y, width, height float64) string {
+	if len(chart.Series) == 0 {
+		return ""
+	}
+
+	plotX := x + 14
+	plotY := y + 44
+	plotWidth := width - 28
+	plotHeight := height - 66
+	seriesLegendY := y + 31
+
+	minValue, maxValue, maxLen, ok := chartBounds(chart.Series)
+	if !ok {
+		return ""
+	}
+
+	var out strings.Builder
+	out.WriteString(fmt.Sprintf(
+		`    <rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" rx="18" fill="#fcfbf7" stroke="#d6d0c4"/>`+"\n",
+		x, y, width, height,
+	))
+	out.WriteString(fmt.Sprintf(
+		`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#16324f">%s</text>`+"\n",
+		x+14, y+20, escapeText(chart.Title),
+	))
+
+	legendX := x + 14
+	for _, series := range chart.Series {
+		if !seriesHasValues(series.Values) {
+			continue
+		}
+		out.WriteString(fmt.Sprintf(
+			`    <line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="%s" stroke-width="2.2"%s/>`+"\n",
+			legendX, seriesLegendY, legendX+16, seriesLegendY,
+			escapeText(chartStroke(series.Stroke)),
+			chartDashAttribute(series.DashArray),
+		))
+		out.WriteString(fmt.Sprintf(
+			`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#4f6d7a">%s</text>`+"\n",
+			legendX+22, seriesLegendY+4, escapeText(series.Label),
+		))
+		legendX += 98
+	}
+
+	for _, gridY := range []float64{plotY, plotY + plotHeight/2, plotY + plotHeight} {
+		out.WriteString(fmt.Sprintf(
+			`    <line x1="%.0f" y1="%.2f" x2="%.0f" y2="%.2f" stroke="#ddd6c8" stroke-width="1"/>`+"\n",
+			plotX, gridY, plotX+plotWidth, gridY,
+		))
+	}
+	out.WriteString(fmt.Sprintf(
+		`    <line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="#8a9aa6" stroke-width="1.4"/>`+"\n",
+		plotX, plotY+plotHeight, plotX+plotWidth, plotY+plotHeight,
+	))
+
+	topLabel := formatChartValue(maxValue)
+	bottomLabel := formatChartValue(minValue)
+	out.WriteString(fmt.Sprintf(
+		`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">%s</text>`+"\n",
+		plotX, plotY-6, escapeText(topLabel),
+	))
+	out.WriteString(fmt.Sprintf(
+		`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">%s</text>`+"\n",
+		plotX, plotY+plotHeight+14, escapeText(bottomLabel),
+	))
+	out.WriteString(fmt.Sprintf(
+		`    <text x="%.0f" y="%.0f" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">0</text>`+"\n",
+		plotX, y+height-10,
+	))
+	out.WriteString(fmt.Sprintf(
+		`    <text x="%.0f" y="%.0f" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">%d</text>`+"\n",
+		plotX+plotWidth, y+height-10, max(maxLen-1, 0),
+	))
+
+	for _, series := range chart.Series {
+		polyline, points := chartPolyline(series.Values, minValue, maxValue, plotX, plotY, plotWidth, plotHeight)
+		if len(points) == 0 {
+			continue
+		}
+		out.WriteString(fmt.Sprintf(
+			`    <polyline fill="none" stroke="%s" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"%s points="%s"/>`+"\n",
+			escapeText(chartStroke(series.Stroke)),
+			chartDashAttribute(series.DashArray),
+			polyline,
+		))
+		for _, point := range points {
+			out.WriteString(fmt.Sprintf(
+				`    <circle cx="%.2f" cy="%.2f" r="2.8" fill="%s"/>`+"\n",
+				point.X, point.Y, escapeText(chartStroke(series.Stroke)),
+			))
+		}
+	}
+
+	return out.String()
+}
+
+type chartPoint struct {
+	X float64
+	Y float64
+}
+
+func chartPolyline(values []float64, minValue, maxValue, plotX, plotY, plotWidth, plotHeight float64) (string, []chartPoint) {
+	validCount := 0
+	for _, value := range values {
+		if isFinite(value) {
+			validCount++
+		}
+	}
+	if validCount == 0 {
+		return "", nil
+	}
+
+	var polyline strings.Builder
+	points := make([]chartPoint, 0, validCount)
+	denominator := max(len(values)-1, 1)
+	valueSpan := maxValue - minValue
+	if valueSpan <= 0 {
+		valueSpan = 1
+	}
+
+	for i, value := range values {
+		if !isFinite(value) {
+			continue
+		}
+		x := plotX + plotWidth*float64(i)/float64(denominator)
+		normalized := (value - minValue) / valueSpan
+		y := plotY + plotHeight - normalized*plotHeight
+		if polyline.Len() > 0 {
+			polyline.WriteByte(' ')
+		}
+		polyline.WriteString(fmt.Sprintf("%.2f,%.2f", x, y))
+		points = append(points, chartPoint{X: x, Y: y})
+	}
+
+	return polyline.String(), points
+}
+
+func chartBounds(series []ChartSeries) (minValue, maxValue float64, maxLen int, ok bool) {
+	for _, line := range series {
+		if len(line.Values) > maxLen {
+			maxLen = len(line.Values)
+		}
+		for _, value := range line.Values {
+			if !isFinite(value) {
+				continue
+			}
+			if !ok {
+				minValue = value
+				maxValue = value
+				ok = true
+				continue
+			}
+			if value < minValue {
+				minValue = value
+			}
+			if value > maxValue {
+				maxValue = value
+			}
+		}
+	}
+	if !ok {
+		return 0, 0, maxLen, false
+	}
+	if math.Abs(maxValue-minValue) < 1e-9 {
+		padding := 1.0
+		if math.Abs(maxValue) > 1 {
+			padding = math.Abs(maxValue) * 0.05
+		}
+		minValue -= padding
+		maxValue += padding
+		return minValue, maxValue, maxLen, true
+	}
+	padding := (maxValue - minValue) * 0.08
+	return minValue - padding, maxValue + padding, maxLen, true
+}
+
+func seriesHasValues(values []float64) bool {
+	for _, value := range values {
+		if isFinite(value) {
+			return true
+		}
+	}
+	return false
+}
+
+func isFinite(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func chartStroke(stroke string) string {
+	if stroke == "" {
+		return defaultStroke
+	}
+	return stroke
+}
+
+func statTone(tone string) string {
+	if tone == "" {
+		return "#16324f"
+	}
+	return tone
+}
+
+func chartDashAttribute(dash string) string {
+	if dash == "" {
+		return ""
+	}
+	return fmt.Sprintf(` stroke-dasharray="%s"`, escapeText(dash))
+}
+
+func formatChartValue(value float64) string {
+	abs := math.Abs(value)
+	switch {
+	case abs >= 1000:
+		return fmt.Sprintf("%.0f", value)
+	case abs >= 100:
+		return fmt.Sprintf("%.1f", value)
+	case abs >= 10:
+		return fmt.Sprintf("%.2f", value)
+	default:
+		return fmt.Sprintf("%.3f", value)
+	}
+}
+
+func legendSpacing(layerCount int) float64 {
+	switch {
+	case layerCount >= 11:
+		return 24
+	case layerCount >= 8:
+		return 28
+	default:
+		return 34
+	}
 }
 
 func buildScaleBar(minLat, maxLat, minLon, maxLon, plotWidth, scale, x, y float64) string {
@@ -269,6 +701,27 @@ func layerDashAttribute(layer Layer) string {
 	return fmt.Sprintf(` stroke-dasharray="%s"`, escapeText(layer.DashArray))
 }
 
+func highlightStroke(stroke string) string {
+	if stroke == "" {
+		return "#c2410c"
+	}
+	return stroke
+}
+
+func highlightWidth(width float64) float64 {
+	if width <= 0 {
+		return 4.5
+	}
+	return width
+}
+
+func highlightOpacity(opacity float64) float64 {
+	if opacity <= 0 {
+		return 0.95
+	}
+	return opacity
+}
+
 func bounds(points []geometry.LatLon) (minLat, maxLat, minLon, maxLon float64) {
 	minLat, maxLat = points[0].Lat, points[0].Lat
 	minLon, maxLon = points[0].Lon, points[0].Lon
@@ -300,4 +753,12 @@ func escapeText(value string) string {
 		`'`, "&apos;",
 	)
 	return replacer.Replace(value)
+}
+
+func trimSidebarText(value string, limit int) string {
+	runes := []rune(value)
+	if len(runes) <= limit || limit < 2 {
+		return value
+	}
+	return string(runes[:limit-1]) + "…"
 }
