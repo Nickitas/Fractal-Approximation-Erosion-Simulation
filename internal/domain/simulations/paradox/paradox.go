@@ -3,12 +3,13 @@ package paradox
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"coastal-geometry/internal/domain/generators/koch"
 	"coastal-geometry/internal/domain/geometry"
 )
 
-func Demonstrate(base []geometry.LatLon, maxIterations int) {
+func Demonstrate(base []geometry.LatLon, maxIterations int, erosionStrength float64, seed int64) {
 	fmt.Println("\n" + strings.Repeat("=", 80))
 	fmt.Println("\tПАРАДОКС БЕРЕГОВОЙ ЛИНИИ")
 	fmt.Println(strings.Repeat("=", 80))
@@ -23,6 +24,12 @@ func Demonstrate(base []geometry.LatLon, maxIterations int) {
 	prevLength := 0.0
 	for level := 0; level <= maxIterations; level++ {
 		curve := koch.KochCurve(base, level)
+		if erosionStrength > 0 {
+			if seed == 0 {
+				seed = time.Now().UnixNano()
+			}
+			curve = geometry.ErodeWithSeed(curve, erosionStrength, seed+int64(level))
+		}
 		length := geometry.PolylineLength(curve)
 		segments := max(len(curve)-1, 0)
 		avgStep := 0.0

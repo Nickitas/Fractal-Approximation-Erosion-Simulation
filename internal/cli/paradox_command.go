@@ -3,6 +3,6 @@ package cli
 import "coastal-geometry/internal/domain/simulations/paradox"
 
 func runParadoxCommand(app *App) error {
-	paradox.Demonstrate(app.ModelBase, app.Config.Iterations)
+	paradox.Demonstrate(app.ModelBase, app.Config.Iterations, app.Config.ErosionStrength, app.Config.Seed)
 	return nil
 }
