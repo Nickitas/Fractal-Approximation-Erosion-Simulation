@@ -3,7 +3,13 @@ package geometry
 import (
 	"math"
 	"math/rand"
+	"sync"
 	"time"
+)
+
+const (
+	erosionChunkSize = 512
+	metersPerDegLat  = 111194.9
 )
 
 // Erode applies a Gaussian-distributed random displacement to every point.
@@ -33,14 +39,13 @@ func SimulateErosionWithSeed(points []LatLon, steps int, strength float64, seed 
 		steps = 0
 	}
 
-	rng := rand.New(rand.NewSource(seed))
 	snapshots := make([][]LatLon, steps+1)
 
 	current := clonePoints(points)
 	snapshots[0] = current
 
 	for i := 1; i <= steps; i++ {
-		current = erodeWithRand(current, strength, rng)
+		current = erodeParallel(current, strength, seed, i)
 		snapshots[i] = current
 	}
 	return snapshots
@@ -94,4 +99,75 @@ func erodeWithRand(points []LatLon, strength float64, rng *rand.Rand) []LatLon {
 	}
 
 	return eroded
+}
+
+func erodeParallel(points []LatLon, strength float64, seed int64, step int) []LatLon {
+	if len(points) == 0 || strength <= 0 {
+		return clonePoints(points)
+	}
+
+	closed := isClosedPolyline(points)
+	refLat := 0.0
+	for _, p := range points {
+		refLat += p.Lat
+	}
+	refLat /= float64(len(points))
+
+	metersPerDegLon := metersPerDegLat * math.Cos(refLat*math.Pi/180)
+	if math.Abs(metersPerDegLon) < 1e-9 {
+		metersPerDegLon = metersPerDegLat
+	}
+
+	out := make([]LatLon, len(points))
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	firstShiftLat := 0.0
+	firstShiftLon := 0.0
+
+	chunkSize := erosionChunkSize
+	for start := 0; start < len(points); start += chunkSize {
+		end := start + chunkSize
+		if end > len(points) {
+			end = len(points)
+		}
+
+		startIdx := start
+		endIdx := end
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := startIdx; i < endIdx; i++ {
+				p := points[i]
+				localSeed := seed + int64(step)*10_000 + int64(i)
+				rng := rand.New(rand.NewSource(localSeed))
+				dx := rng.NormFloat64() * strength
+				dy := rng.NormFloat64() * strength
+
+				if closed && i == 0 {
+					mu.Lock()
+					firstShiftLat = dy
+					firstShiftLon = dx
+					mu.Unlock()
+				}
+
+				out[i] = LatLon{
+					Lat: p.Lat + dy/metersPerDegLat,
+					Lon: p.Lon + dx/metersPerDegLon,
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	if closed && len(out) > 1 {
+		last := len(out) - 1
+		p := points[last]
+		out[last] = LatLon{
+			Lat: p.Lat + firstShiftLat/metersPerDegLat,
+			Lon: p.Lon + firstShiftLon/metersPerDegLon,
+		}
+	}
+
+	return out
 }
