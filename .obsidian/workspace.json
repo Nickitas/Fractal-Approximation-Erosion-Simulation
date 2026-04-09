@@ -1,0 +1,192 @@
+{
+  "main": {
+    "id": "8f2e5ba7ba8f048c",
+    "type": "split",
+    "children": [
+      {
+        "id": "e4b7944eab6b4a26",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "9cbf91120f9dd51e",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "articles/Статья 1. Методологические и онтологические аспекты разработки математико-алгоритмичной модели береговой линии.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Статья 1. Методологические и онтологические аспекты разработки математико-алгоритмичной модели береговой линии"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "9ea4e223dc6967b5",
+    "type": "split",
+    "children": [
+      {
+        "id": "4d4003fef810560f",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "ba5a6dc8bcbfe586",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Файловый менеджер"
+            }
+          },
+          {
+            "id": "7adf993db7a86584",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Поиск"
+            }
+          },
+          {
+            "id": "26ce01295273f276",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Закладки"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "27a1aae4a27d4ff3",
+    "type": "split",
+    "children": [
+      {
+        "id": "de3dd2d571740d82",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "039bff1034dad591",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "articles/Статья 1. Методологические и онтологические аспекты разработки математико-алгоритмичной модели береговой линии.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Обратные ссылки для Статья 1. Методологические и онтологические аспекты разработки математико-алгоритмичной модели береговой линии"
+            }
+          },
+          {
+            "id": "a7dd453892e904a7",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "articles/Статья 1. Методологические и онтологические аспекты разработки математико-алгоритмичной модели береговой линии.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Исходящие ссылки из Статья 1. Методологические и онтологические аспекты разработки математико-алгоритмичной модели береговой линии"
+            }
+          },
+          {
+            "id": "a764bee104475e0d",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Теги"
+            }
+          },
+          {
+            "id": "481456d491608eec",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Все свойства"
+            }
+          },
+          {
+            "id": "a09511e315546c4d",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "articles/Статья 1. Методологические и онтологические аспекты разработки математико-алгоритмичной модели береговой линии.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Структура Статья 1. Методологические и онтологические аспекты разработки математико-алгоритмичной модели береговой линии"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Меню быстрого перехода": false,
+      "graph:Граф": false,
+      "canvas:Создать новый холст": false,
+      "daily-notes:Сегодняшняя заметка": false,
+      "templates:Вставить шаблон": false,
+      "command-palette:Открыть палитру команд": false,
+      "bases:Создать новую базу": false
+    }
+  },
+  "active": "9cbf91120f9dd51e",
+  "lastOpenFiles": [
+    "articles/Статья 2. Математико-алгоритмическая модель фрактальной аппроксимации береговой линии и численный метод оценки её масштабно-зависи.md",
+    "articles/Статья 1. Методологические и онтологические аспекты разработки математико-алгоритмичной модели береговой линии.md",
+    "articles/Реферат. Философия.md"
+  ]
+}
