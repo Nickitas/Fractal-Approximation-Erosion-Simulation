@@ -16,6 +16,8 @@ func executeCommand(app *App) error {
 		return runKochOrganicCommand(app)
 	case cmdDimension:
 		return runDimensionCommand(app)
+	case cmdErosion:
+		return runErosionCommand(app)
 	default:
 		return errUnsupportedCommand(app.Config.Command)
 	}

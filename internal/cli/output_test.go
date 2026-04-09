@@ -99,7 +99,7 @@ func TestWriteKochSVGSeriesShowsReferenceAndModelBase(t *testing.T) {
 		{Lat: 0, Lon: 0.20},
 	}
 
-	err := writeKochSVGSeries(originalBase, modelBase, 1, dir, exportContext{
+	err := writeKochSVGSeries(originalBase, modelBase, 1, dir, 0, 0, exportContext{
 		Command: cmdKoch,
 		Dataset: "test.json",
 		Source:  "unit-test",
@@ -165,7 +165,7 @@ func TestWriteOrganicKochSVGSeriesPersistsDimensionMetrics(t *testing.T) {
 		{Lat: 0, Lon: 0.20},
 	}
 
-	err := writeOrganicKochSVGSeries(base, base, 1, dir, koch.OrganicOptions{Seed: 7}, "dimension_iter", "dimension", true, exportContext{
+	err := writeOrganicKochSVGSeries(base, base, 1, dir, koch.OrganicOptions{Seed: 7}, 0, "dimension_iter", "dimension", true, exportContext{
 		Command: cmdDimension,
 		Dataset: "test.json",
 		Source:  "unit-test",

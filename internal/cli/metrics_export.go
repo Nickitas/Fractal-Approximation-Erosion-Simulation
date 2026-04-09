@@ -88,6 +88,8 @@ type fractalSeriesArtifactMetrics struct {
 	ReferenceRender     polylineMetrics            `json:"reference_render"`
 	ModelBase           polylineMetrics            `json:"model_base"`
 	ModelSimplification simplificationMetrics      `json:"model_simplification"`
+	ErosionStrength     float64                    `json:"erosion_strength_meters,omitempty"`
+	ErosionSeed         int64                      `json:"erosion_seed,omitempty"`
 	OrganicOptions      *organicOptionsMetrics     `json:"organic_options,omitempty"`
 	Iterations          []fractalIterationMetrics  `json:"iterations"`
 	Highlights          coastlineHighlightsMetrics `json:"highlights"`
@@ -125,6 +127,31 @@ type dimensionMetrics struct {
 	StableAcrossScales bool    `json:"stable_across_scales"`
 	StabilitySpread    float64 `json:"stability_spread,omitempty"`
 	SampleCount        int     `json:"sample_count"`
+}
+
+type erosionStepMetrics struct {
+	Step         int     `json:"step"`
+	SVGFile      string  `json:"svg_file"`
+	Points       int     `json:"points"`
+	RenderPoints int     `json:"render_points"`
+	LengthKM     float64 `json:"length_km"`
+}
+
+type erosionSeriesArtifactMetrics struct {
+	GeneratedAt         string                     `json:"generated_at"`
+	Command             string                     `json:"command"`
+	Dataset             string                     `json:"dataset,omitempty"`
+	Source              string                     `json:"source,omitempty"`
+	OutputDir           string                     `json:"output_dir"`
+	ReferenceCoastline  polylineMetrics            `json:"reference_coastline"`
+	ReferenceRender     polylineMetrics            `json:"reference_render"`
+	ModelBase           polylineMetrics            `json:"model_base"`
+	ModelSimplification simplificationMetrics      `json:"model_simplification"`
+	ErosionStrength     float64                    `json:"erosion_strength_meters,omitempty"`
+	ErosionSeed         int64                      `json:"erosion_seed,omitempty"`
+	Steps               []erosionStepMetrics       `json:"steps"`
+	Highlights          coastlineHighlightsMetrics `json:"highlights"`
+	Validation          validationMetrics          `json:"validation"`
 }
 
 func newExportContext(app *App) exportContext {

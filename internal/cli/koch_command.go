@@ -10,7 +10,7 @@ func runKochCommand(app *App) error {
 	if !report.Valid {
 		printInvalidResult()
 	}
-	return writeKochSVGSeries(app.Base, app.ModelBase, app.Config.Iterations, app.Config.OutputPath, newExportContext(app))
+	return writeKochSVGSeries(app.Base, app.ModelBase, app.Config.Iterations, app.Config.OutputPath, app.Config.ErosionStrength, app.Config.Seed, newExportContext(app))
 }
 
 func runKochMetrics(base []geometry.LatLon, iterations int) koch.TheoryCheckReport {

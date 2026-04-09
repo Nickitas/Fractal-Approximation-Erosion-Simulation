@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type fractalSeriesOptions struct {
@@ -21,6 +22,8 @@ type fractalSeriesOptions struct {
 	OriginalBase     []geometry.LatLon
 	ModelBase        []geometry.LatLon
 	OrganicOptions   *koch.OrganicOptions
+	ErosionStrength  float64
+	ErosionSeed      int64
 	IncludeDimension bool
 	TheoryByIter     map[int]koch.TheoryCheckSample
 	Builder          func([]geometry.LatLon, int) []geometry.LatLon
@@ -91,7 +94,7 @@ func writeCoastlineSVG(points, renderPoints []geometry.LatLon, output, defaultNa
 	return nil
 }
 
-func writeKochSVGSeries(originalBase, modelBase []geometry.LatLon, iterations int, output string, ctx exportContext) error {
+func writeKochSVGSeries(originalBase, modelBase []geometry.LatLon, iterations int, output string, erosionStrength float64, erosionSeed int64, ctx exportContext) error {
 	report := koch.CheckTheoryConsistency(modelBase, iterations)
 	theoryByIter := make(map[int]koch.TheoryCheckSample, len(report.Samples))
 	for _, sample := range report.Samples {
@@ -105,6 +108,8 @@ func writeKochSVGSeries(originalBase, modelBase []geometry.LatLon, iterations in
 		Iterations:      iterations,
 		OriginalBase:    originalBase,
 		ModelBase:       modelBase,
+		ErosionStrength: erosionStrength,
+		ErosionSeed:     erosionSeed,
 		TheoryByIter:    theoryByIter,
 		Builder: func(points []geometry.LatLon, iter int) []geometry.LatLon {
 			return koch.KochCurve(points, iter)
@@ -112,7 +117,7 @@ func writeKochSVGSeries(originalBase, modelBase []geometry.LatLon, iterations in
 	}, output, ctx)
 }
 
-func writeOrganicKochSVGSeries(originalBase, modelBase []geometry.LatLon, iterations int, output string, opts koch.OrganicOptions, prefix, metricsBaseName string, includeDimension bool, ctx exportContext) error {
+func writeOrganicKochSVGSeries(originalBase, modelBase []geometry.LatLon, iterations int, output string, opts koch.OrganicOptions, erosionStrength float64, prefix, metricsBaseName string, includeDimension bool, ctx exportContext) error {
 	return writeFractalSeries(fractalSeriesOptions{
 		Title:            "Organic Koch",
 		Prefix:           prefix,
@@ -121,11 +126,104 @@ func writeOrganicKochSVGSeries(originalBase, modelBase []geometry.LatLon, iterat
 		OriginalBase:     originalBase,
 		ModelBase:        modelBase,
 		OrganicOptions:   &opts,
+		ErosionStrength:  erosionStrength,
+		ErosionSeed:      opts.Seed,
 		IncludeDimension: includeDimension,
 		Builder: func(points []geometry.LatLon, iter int) []geometry.LatLon {
 			return koch.OrganicKochCurve(points, iter, opts)
 		},
 	}, output, ctx)
+}
+
+func writeErosionSVGSeries(originalBase, modelBase []geometry.LatLon, snapshots [][]geometry.LatLon, steps int, strength float64, seed int64, output string, ctx exportContext) error {
+	outputDir, err := resolveSeriesOutputDir(output)
+	if err != nil {
+		return err
+	}
+
+	if len(originalBase) == 0 {
+		originalBase = modelBase
+	}
+	if len(modelBase) == 0 {
+		modelBase = originalBase
+	}
+
+	referenceRender := simplifyForSeriesSVG(originalBase).Points
+	if len(referenceRender) == 0 {
+		referenceRender = originalBase
+	}
+
+	renderSnapshots := make([][]geometry.LatLon, len(snapshots))
+	lengths := make([]float64, len(snapshots))
+	for i, snap := range snapshots {
+		renderSnapshots[i] = simplifyForSeriesSVG(snap).Points
+		lengths[i] = geometry.PolylineLength(snap)
+	}
+
+	referenceSummary := summarizePolyline(originalBase)
+	referenceRenderSummary := summarizePolyline(referenceRender)
+	modelSummary := summarizePolyline(modelBase)
+	modelSimplification := summarizeSimplification(originalBase, modelBase)
+	visualHints := coastline.BuildVisualizationHints(originalBase)
+	validationSummary := coastline.BuildValidationSummary(originalBase)
+
+	stepMetrics := make([]erosionStepMetrics, 0, len(snapshots))
+
+	for step := 0; step < len(snapshots); step++ {
+		filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d.svg", "erosion_step", step))
+		layers := makeErosionLayers(referenceRender, referenceSummary.LengthKM, renderSnapshots, lengths, step)
+
+		meta := []string{
+			fmt.Sprintf("Реальная линия: %.0f км, %d т.", referenceSummary.LengthKM, referenceSummary.PointsCount),
+			fmt.Sprintf("База модели: %.0f км, %d т. (%+.1f%% к реальной)", modelSummary.LengthKM, modelSummary.PointsCount, modelSimplification.LengthDeltaPercent),
+			fmt.Sprintf("Шаг %d: %.0f км, %d т. расчёт / %d т. SVG", step, lengths[step], len(snapshots[step]), len(renderSnapshots[step])),
+		}
+		meta = append(meta, fmt.Sprintf("Эрозия: σ=%.0f м, seed=%d", strength, seed))
+
+		if err := svgrender.DrawDocument(svgrender.Document{
+			Title:     fmt.Sprintf("Эрозия — шаг %d", step),
+			Subtitle:  "Серая пунктирная линия показывает реальную загруженную береговую линию; цветные слои — результаты пошаговой эрозии",
+			Layers:    layers,
+			StatCards: makeValidationStatCards(ctx.Validation, validationSummary),
+			Meta:      meta,
+		}, filename); err != nil {
+			return err
+		}
+
+		stepMetrics = append(stepMetrics, erosionStepMetrics{
+			Step:         step,
+			SVGFile:      filename,
+			Points:       len(snapshots[step]),
+			LengthKM:     lengths[step],
+			RenderPoints: len(renderSnapshots[step]),
+		})
+
+		fmt.Printf("SVG saved to %s\n", filename)
+	}
+
+	metricsPath := metricsPathForSeries(outputDir, "erosion")
+	seriesMetrics := erosionSeriesArtifactMetrics{
+		GeneratedAt:         nowTimestamp(),
+		Command:             canonicalCommandPath(ctx.Command),
+		Dataset:             ctx.Dataset,
+		Source:              ctx.Source,
+		OutputDir:           outputDir,
+		ReferenceCoastline:  referenceSummary,
+		ReferenceRender:     referenceRenderSummary,
+		ModelBase:           modelSummary,
+		ModelSimplification: modelSimplification,
+		ErosionStrength:     strength,
+		ErosionSeed:         seed,
+		Steps:               stepMetrics,
+		Highlights:          coastlineHighlightsMetricsFromHints(visualHints),
+		Validation:          validationMetricsFromData(ctx.Validation, validationSummary),
+	}
+
+	if err := writeMetricsJSON(metricsPath, seriesMetrics); err != nil {
+		return err
+	}
+	fmt.Printf("Metrics saved to %s\n", metricsPath)
+	return nil
 }
 
 func writeFractalSeries(opts fractalSeriesOptions, output string, ctx exportContext) error {
@@ -159,6 +257,13 @@ func writeFractalSeries(opts fractalSeriesOptions, output string, ctx exportCont
 
 	for iter := 0; iter <= iterations; iter++ {
 		curves[iter] = opts.Builder(modelBase, iter)
+		if opts.ErosionStrength > 0 {
+			seed := opts.ErosionSeed
+			if seed == 0 {
+				seed = time.Now().UnixNano()
+			}
+			curves[iter] = geometry.ErodeWithSeed(curves[iter], opts.ErosionStrength, seed+int64(iter))
+		}
 		renderCurves[iter] = simplifyForSeriesSVG(curves[iter]).Points
 		lengths[iter] = geometry.PolylineLength(curves[iter])
 		if len(curves[iter]) > maxRawPoints {
@@ -201,6 +306,9 @@ func writeFractalSeries(opts fractalSeriesOptions, output string, ctx exportCont
 			}
 		} else if theory, ok := opts.TheoryByIter[iter]; ok {
 			meta = append(meta, fmt.Sprintf("Теория: %.0f км, ошибка %.2f%%", theory.TheoreticalKM, theory.ErrorPercent))
+		}
+		if opts.ErosionStrength > 0 {
+			meta = append(meta, fmt.Sprintf("Эрозия: σ=%.0f м, seed=%d", opts.ErosionStrength, opts.ErosionSeed))
 		}
 
 		if err := svgrender.DrawDocument(svgrender.Document{
@@ -248,6 +356,8 @@ func writeFractalSeries(opts fractalSeriesOptions, output string, ctx exportCont
 		ReferenceRender:     referenceRenderSummary,
 		ModelBase:           modelSummary,
 		ModelSimplification: modelSimplification,
+		ErosionStrength:     opts.ErosionStrength,
+		ErosionSeed:         opts.ErosionSeed,
 		Iterations:          iterationsMetrics,
 		Highlights:          coastlineHighlightsMetricsFromHints(visualHints),
 		Validation:          validationMetricsFromData(ctx.Validation, validationSummary),
@@ -312,6 +422,47 @@ func makeFractalLayers(reference []geometry.LatLon, referenceLength float64, cur
 			LengthKM:    lengths[i],
 			Stroke:      palette[i%len(palette)],
 			StrokeWidth: strokeWidth,
+			Opacity:     opacity,
+		})
+	}
+
+	return layers
+}
+
+func makeErosionLayers(reference []geometry.LatLon, referenceLength float64, snapshots [][]geometry.LatLon, lengths []float64, current int) []svgrender.Layer {
+	palette := []string{
+		"#1f6f8b",
+		"#c06c3f",
+		"#2c7a7b",
+		"#8b3f5c",
+		"#6f5f1f",
+		"#3f6b4b",
+	}
+
+	layers := []svgrender.Layer{
+		{
+			Label:       "Реальная загруженная полилиния (справочно)",
+			Points:      reference,
+			LengthKM:    referenceLength,
+			Stroke:      "#7a8b99",
+			StrokeWidth: 1.8,
+			Opacity:     0.85,
+			DashArray:   "8 6",
+		},
+	}
+
+	for i := 0; i <= current && i < len(snapshots); i++ {
+		color := palette[i%len(palette)]
+		opacity := 0.35 + float64(i)*0.1
+		if i == current {
+			opacity = 1
+		}
+		layers = append(layers, svgrender.Layer{
+			Label:       fmt.Sprintf("Эрозия шаг %d", i),
+			Points:      snapshots[i],
+			LengthKM:    lengths[i],
+			Stroke:      color,
+			StrokeWidth: 2.2,
 			Opacity:     opacity,
 		})
 	}

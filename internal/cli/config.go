@@ -20,18 +20,21 @@ const (
 	cmdKoch          = "koch"
 	cmdKochOrganic   = "koch-organic"
 	cmdDimension     = "dimension"
+	cmdErosion       = "erosion"
 )
 
 type config struct {
-	Command      string
-	InputPath    string
-	SourceURL    string
-	Refresh      bool
-	OutputPath   string
-	Iterations   int
-	Seed         int64
-	AngleJitter  float64
-	HeightJitter float64
+	Command         string
+	InputPath       string
+	SourceURL       string
+	Refresh         bool
+	OutputPath      string
+	Iterations      int
+	Steps           int
+	Seed            int64
+	AngleJitter     float64
+	HeightJitter    float64
+	ErosionStrength float64
 }
 
 func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
@@ -70,6 +73,7 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")
 		fs.Float64Var(&cfg.AngleJitter, "angle-jitter", 18, "maximum random angle deviation in degrees")
 		fs.Float64Var(&cfg.HeightJitter, "height-jitter", 0.25, "maximum random height deviation as a ratio")
+		fs.Float64Var(&cfg.ErosionStrength, "erosion-strength", 0, "Gaussian erosion strength in meters; applied after fractal growth (0 disables)")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdCoastline:
 		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
@@ -82,6 +86,8 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
 		fs.BoolVar(&cfg.Refresh, "refresh", false, "force refresh of the remote GeoJSON cache before running")
 		fs.IntVar(&cfg.Iterations, "iterations", 4, fmt.Sprintf("maximum paradox detail levels (0-%d)", koch.MaxIterations))
+		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for paradox erosion/randomness")
+		fs.Float64Var(&cfg.ErosionStrength, "erosion-strength", 0, "Gaussian erosion strength in meters; applied after fractal growth (0 disables)")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdKoch:
 		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
@@ -89,6 +95,7 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		fs.BoolVar(&cfg.Refresh, "refresh", false, "force refresh of the remote GeoJSON cache before running")
 		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
 		fs.IntVar(&cfg.Iterations, "iterations", 5, fmt.Sprintf("maximum Koch iterations (0-%d)", koch.MaxIterations))
+		fs.Float64Var(&cfg.ErosionStrength, "erosion-strength", 0, "Gaussian erosion strength in meters; applied after fractal growth (0 disables)")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdKochOrganic:
 		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
@@ -99,6 +106,7 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")
 		fs.Float64Var(&cfg.AngleJitter, "angle-jitter", 18, "maximum random angle deviation in degrees")
 		fs.Float64Var(&cfg.HeightJitter, "height-jitter", 0.25, "maximum random height deviation as a ratio")
+		fs.Float64Var(&cfg.ErosionStrength, "erosion-strength", 0, "Gaussian erosion strength in meters; applied after fractal growth (0 disables)")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	case cmdDimension:
 		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
@@ -109,6 +117,16 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for organic coastline generation")
 		fs.Float64Var(&cfg.AngleJitter, "angle-jitter", 18, "maximum random angle deviation in degrees")
 		fs.Float64Var(&cfg.HeightJitter, "height-jitter", 0.25, "maximum random height deviation as a ratio")
+		fs.Float64Var(&cfg.ErosionStrength, "erosion-strength", 0, "Gaussian erosion strength in meters; applied after fractal growth (0 disables)")
+		fs.Usage = func() { printCommandUsage(stdout, command) }
+	case cmdErosion:
+		fs.StringVar(&cfg.InputPath, "input", coastline.DefaultCoastlineJSONPath, "path to local coastline JSON/GeoJSON fallback file")
+		fs.StringVar(&cfg.SourceURL, "source-url", coastline.DefaultCoastlineGeoJSONURL, "remote GeoJSON URL for coastline data; empty string disables HTTP loading")
+		fs.BoolVar(&cfg.Refresh, "refresh", false, "force refresh of the remote GeoJSON cache before running")
+		fs.StringVar(&cfg.OutputPath, "output", "", "output directory for generated visualizations (default: ./output)")
+		fs.IntVar(&cfg.Steps, "steps", 5, "number of erosion steps (0+)")
+		fs.Int64Var(&cfg.Seed, "seed", 42, "random seed for erosion simulation")
+		fs.Float64Var(&cfg.ErosionStrength, "erosion-strength", 50, "Gaussian erosion strength in meters; applied each step (0 disables)")
 		fs.Usage = func() { printCommandUsage(stdout, command) }
 	}
 
@@ -135,13 +153,19 @@ func parseConfig(args []string, stdout, stderr io.Writer) (config, error) {
 			return config{}, fmt.Errorf("height-jitter must be non-negative")
 		}
 	}
+	if cfg.ErosionStrength < 0 {
+		return config{}, fmt.Errorf("erosion-strength must be non-negative")
+	}
+	if command == cmdErosion && cfg.Steps < 0 {
+		return config{}, fmt.Errorf("steps must be non-negative")
+	}
 
 	return cfg, nil
 }
 
 func commandNeedsCoastline(command string) bool {
 	switch command {
-	case cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
+	case cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension, cmdErosion:
 		return true
 	default:
 		return false
@@ -167,7 +191,7 @@ func resolveCommand(args []string, stdout, stderr io.Writer) (string, []string, 
 		return resolveGroupedCommand(cmdReal, args[1:], stdout, stderr)
 	case cmdModel:
 		return resolveGroupedCommand(cmdModel, args[1:], stdout, stderr)
-	case cmdSource, cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
+	case cmdSource, cmdAll, cmdCoastline, cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension, cmdErosion:
 		return args[0], args[1:], nil
 	default:
 		printRootUsage(stderr)
@@ -196,7 +220,7 @@ func commandBelongsToGroup(command, group string) bool {
 		return command == cmdCoastline
 	case cmdModel:
 		switch command {
-		case cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension:
+		case cmdParadox, cmdKoch, cmdKochOrganic, cmdDimension, cmdErosion:
 			return true
 		default:
 			return false
