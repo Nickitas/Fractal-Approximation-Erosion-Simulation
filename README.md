@@ -22,6 +22,7 @@
 - [Установка и запуск](#-установка-и-запуск)
 - [Примеры использования](#-примеры-использования)
 - [Выходные данные](#-выходные-данные)
+- [Демонстрация работы](#-демонстрация-работы)
 - [Научные задачи](#-научные-задачи)
 - [Области применения](#-области-применения)
 - [Цитирование](#-цитирование)
@@ -199,6 +200,146 @@ go run ./cmd/fraes --help
 Отдельная команда `fraes source` сохраняет raw snapshot исходного payload в `data/snapshots/` или в путь из `--output`; это независимая копия источника, не совпадающая с рабочим кэшем в `data/cache/`.
 
 По умолчанию загрузка береговой линии работает в режиме `cache-first`: FRAES сначала пытается использовать локальный кэш удалённого GeoJSON в `data/cache/`, затем при необходимости делает HTTP GET к официальному Marine Regions WFS-эндпоинту для `Black Sea` (`mrgid=3319`), обновляет кэш и только при сетевой или форматной ошибке использует локальный `data/black-sea.json`. Флаг `--refresh` принудительно пропускает чтение из кэша и заново скачивает удалённый источник.
+
+---
+
+## 🎬 Демонстрация работы
+
+Полный визуальный прогон программы — от исходной береговой линии до фрактальных итераций и анализа размерности.
+
+### 1. Исходная береговая линия Черного моря
+
+Команда: `./fraes real coastline`
+
+Результат — валидация геометрии и расчёт базовых метрик:
+
+![Coastline](output/full-run/coastline.svg)
+
+**Метрики:**
+- Длина береговой линии рассчитана геодезическими методами
+- Файл `coastline.metrics.json` содержит детальные данные о длине, числе точек и результатах валидации
+
+---
+
+### 2. Классическая фрактальная аппроксимация (Koch)
+
+Команда: `./fraes model koch --iterations 5 --output ./output/full-run`
+
+Серия SVG показывает рост детализации с каждой итерацией:
+
+**Итерация 0** — базовая полилиния:
+
+![Koch Iteration 0](output/full-run/koch_iter_0.svg)
+
+**Итерация 1:**
+
+![Koch Iteration 1](output/full-run/koch_iter_1.svg)
+
+**Итерация 2:**
+
+![Koch Iteration 2](output/full-run/koch_iter_2.svg)
+
+**Итерация 3:**
+
+![Koch Iteration 3](output/full-run/koch_iter_3.svg)
+
+**Итерация 4:**
+
+![Koch Iteration 4](output/full-run/koch_iter_4.svg)
+
+**Итерация 5:**
+
+![Koch Iteration 5](output/full-run/koch_iter_5.svg)
+
+**Наблюдение:** С каждой итерацией длина береговой линии растёт — демонстрация парадокса береговой линии.
+
+---
+
+### 3. Органическая фрактальная аппроксимация
+
+Команда: `./fraes model koch-organic --iterations 5 --seed 42 --output ./output/organic`
+
+Органическая версия добавляет стохастические сдвиги для более естественного вида:
+
+**Итерация 0:**
+
+![Organic Iteration 0](output/organic/koch_iter_0.svg)
+
+**Итерация 2:**
+
+![Organic Iteration 2](output/organic/koch_iter_2.svg)
+
+**Итерация 4:**
+
+![Organic Iteration 4](output/organic/koch_iter_4.svg)
+
+**Итерация 5:**
+
+![Organic Iteration 5](output/organic/koch_iter_5.svg)
+
+**Наблюдение:** Органическая модель создаёт более природные формы благодаря Gaussian-сдвигам точек.
+
+---
+
+### 4. Анализ фрактальной размерности (Box-Counting)
+
+Команда: `./fraes model dimension --iterations 6 --output ./output/dim`
+
+Серия графиков показывает сходимость оценки фрактальной размерности D:
+
+**Итерация 0:**
+
+![Dimension 0](output/dim/dimension_iter_0.svg)
+
+**Итерация 2:**
+
+![Dimension 2](output/dim/dimension_iter_2.svg)
+
+**Итерация 4:**
+
+![Dimension 4](output/dim/dimension_iter_4.svg)
+
+**Итерация 5:**
+
+![Dimension 5](output/dim/dimension_iter_5.svg)
+
+**Наблюдение:** С каждой итерацией оценка D приближается к теоретическому значению Коха (~1.2619).
+
+---
+
+### 5. Полный сценарий: реальные метрики + все демонстрации
+
+Команда: `./fraes all --output ./output/full-run`
+
+Результат полного прогона включает:
+
+| Файл | Описание |
+|------|----------|
+| `coastline.svg` | Исходная береговая линия с метриками |
+| `koch_iter_*.svg` | 6 итераций классической Коха |
+| `koch-organic.metrics.json` | Метрики органической модели |
+| `dimension_iter_*.svg` | 6 итераций анализа размерности |
+| `dimension-organic.metrics.json` | Диагностика box-counting |
+
+**Полная серия итераций Коха (0-5):**
+
+![Koch Full 0](output/full-run/koch_iter_0.svg)
+![Koch Full 1](output/full-run/koch_iter_1.svg)
+![Koch Full 2](output/full-run/koch_iter_2.svg)
+![Koch Full 3](output/full-run/koch_iter_3.svg)
+![Koch Full 4](output/full-run/koch_iter_4.svg)
+![Koch Full 5](output/full-run/koch_iter_5.svg)
+
+**Полная серия анализа размерности (0-5):**
+
+![Dim Full 0](output/full-run/dimension_iter_0.svg)
+![Dim Full 1](output/full-run/dimension_iter_1.svg)
+![Dim Full 2](output/full-run/dimension_iter_2.svg)
+![Dim Full 3](output/full-run/dimension_iter_3.svg)
+![Dim Full 4](output/full-run/dimension_iter_4.svg)
+![Dim Full 5](output/full-run/dimension_iter_5.svg)
+
+---
 
 ---
 
