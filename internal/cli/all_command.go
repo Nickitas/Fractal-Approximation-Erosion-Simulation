@@ -19,6 +19,9 @@ func runAllCommand(app *App) error {
 	if err := writeOrganicKochSVGSeries(app.Base, app.ModelBase, app.Config.Iterations, app.Config.OutputPath, organicKochOptions(app), app.Config.ErosionStrength, "koch_iter", "koch-organic", false, newExportContext(app)); err != nil {
 		return err
 	}
+	if err := writeOrganicKochSVGSeries(app.Base, app.ModelBase, app.Config.Iterations, app.Config.OutputPath, organicKochOptions(app), app.Config.ErosionStrength, "dimension_iter", "dimension-organic", true, newExportContext(app)); err != nil {
+		return err
+	}
 
 	assessment, err := runDimensionMetrics(app.ModelBase, app.Config.Iterations, organicKochOptions(app))
 	if err != nil {
