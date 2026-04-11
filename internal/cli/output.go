@@ -155,9 +155,11 @@ func writeErosionSVGSeries(originalBase, modelBase []geometry.LatLon, snapshots 
 
 	renderSnapshots := make([][]geometry.LatLon, len(snapshots))
 	lengths := make([]float64, len(snapshots))
+	areas := make([]float64, len(snapshots))
 	for i, snap := range snapshots {
 		renderSnapshots[i] = simplifyForSeriesSVG(snap).Points
 		lengths[i] = geometry.PolylineLength(snap)
+		areas[i] = geometry.Area(snap)
 	}
 
 	referenceSummary := summarizePolyline(originalBase)
@@ -177,6 +179,7 @@ func writeErosionSVGSeries(originalBase, modelBase []geometry.LatLon, snapshots 
 			fmt.Sprintf("Реальная линия: %.0f км, %d т.", referenceSummary.LengthKM, referenceSummary.PointsCount),
 			fmt.Sprintf("База модели: %.0f км, %d т. (%+.1f%% к реальной)", modelSummary.LengthKM, modelSummary.PointsCount, modelSimplification.LengthDeltaPercent),
 			fmt.Sprintf("Шаг %d: %.0f км, %d т. расчёт / %d т. SVG", step, lengths[step], len(snapshots[step]), len(renderSnapshots[step])),
+			fmt.Sprintf("Площадь: %.0f км²", areas[step]),
 		}
 		meta = append(meta, fmt.Sprintf("Эрозия: σ=%.0f м, seed=%d", strength, seed))
 
@@ -196,6 +199,7 @@ func writeErosionSVGSeries(originalBase, modelBase []geometry.LatLon, snapshots 
 			Points:       len(snapshots[step]),
 			LengthKM:     lengths[step],
 			RenderPoints: len(renderSnapshots[step]),
+			AreaKM:       areas[step],
 		})
 
 		fmt.Printf("SVG saved to %s\n", filename)
