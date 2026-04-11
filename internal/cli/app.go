@@ -20,6 +20,7 @@ type App struct {
 
 func NewApp(cfg config) (*App, error) {
 	app := &App{Config: cfg}
+	setCurrentConfig(cfg)
 
 	if cfg.Command == cmdSource {
 		inspection, err := coastline.InspectSource(coastline.InspectOptions{

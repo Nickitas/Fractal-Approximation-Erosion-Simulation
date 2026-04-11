@@ -1,0 +1,158 @@
+{
+  "generated_at": "2026-04-11T13:07:49Z",
+  "command": "model dimension",
+  "dataset": "Black Sea",
+  "source": "data/cache/black-sea.geojson (cached copy of https://geo.vliz.be/geoserver/MarineRegions/wfs?cql_filter=mrgid%3D3319\u0026outputFormat=application%2Fjson\u0026request=GetFeature\u0026service=WFS\u0026typeName=iho\u0026version=1.0.0)",
+  "title": "Organic Koch",
+  "output_dir": "/Users/datsky/Desktop/Fractal-Approximation-Erosion-Simulation/output/dim",
+  "reference_coastline": {
+    "points_count": 9635,
+    "length_km": 6391.057193562526
+  },
+  "reference_render": {
+    "points_count": 1800,
+    "length_km": 5949.039321836947
+  },
+  "model_base": {
+    "points_count": 9635,
+    "length_km": 6391.057193562526
+  },
+  "model_simplification": {
+    "applied": false,
+    "points_before": 9635,
+    "points_after": 9635,
+    "length_before_km": 6391.057193562526,
+    "length_after_km": 6391.057193562526,
+    "length_delta_km": 0,
+    "length_delta_percent": 0
+  },
+  "erosion_seed": 42,
+  "organic_options": {
+    "seed": 42,
+    "angle_jitter_deg": 18,
+    "height_jitter_pct": 0.25
+  },
+  "iterations": [
+    {
+      "iteration": 0,
+      "svg_file": "/Users/datsky/Desktop/Fractal-Approximation-Erosion-Simulation/output/dim/dimension_iter_0.svg",
+      "points_count": 9635,
+      "render_points_count": 1800,
+      "length_km": 6391.057193562526,
+      "relative_to_model_base": 1,
+      "relative_to_reference": 1,
+      "dimension": {
+        "valid": true,
+        "dimension": 1.1360592331313,
+        "regression_r_squared": 0.9989936197794207,
+        "stable_across_scales": false,
+        "stability_spread": 0.2504657323307369,
+        "sample_count": 8
+      }
+    },
+    {
+      "iteration": 1,
+      "svg_file": "/Users/datsky/Desktop/Fractal-Approximation-Erosion-Simulation/output/dim/dimension_iter_1.svg",
+      "points_count": 38537,
+      "render_points_count": 1799,
+      "length_km": 8931.465548512513,
+      "relative_to_model_base": 1.3974942295163382,
+      "relative_to_reference": 1.3974942295163382,
+      "dimension": {
+        "valid": true,
+        "dimension": 1.1550586172394834,
+        "regression_r_squared": 0.9993781786713913,
+        "stable_across_scales": false,
+        "stability_spread": 0.20818592883817266,
+        "sample_count": 8
+      }
+    },
+    {
+      "iteration": 2,
+      "svg_file": "/Users/datsky/Desktop/Fractal-Approximation-Erosion-Simulation/output/dim/dimension_iter_2.svg",
+      "points_count": 154145,
+      "render_points_count": 1800,
+      "length_km": 12068.302738099308,
+      "relative_to_model_base": 1.8883108651030789,
+      "relative_to_reference": 1.8883108651030789,
+      "dimension": {
+        "valid": true,
+        "dimension": 1.158397092790863,
+        "regression_r_squared": 0.9994261469167967,
+        "stable_across_scales": false,
+        "stability_spread": 0.20764466739147025,
+        "sample_count": 8
+      }
+    },
+    {
+      "iteration": 3,
+      "svg_file": "/Users/datsky/Desktop/Fractal-Approximation-Erosion-Simulation/output/dim/dimension_iter_3.svg",
+      "points_count": 616577,
+      "render_points_count": 1800,
+      "length_km": 16165.48258245525,
+      "relative_to_model_base": 2.529391005722518,
+      "relative_to_reference": 2.529391005722518,
+      "dimension": {
+        "valid": true,
+        "dimension": 1.1589778146150411,
+        "regression_r_squared": 0.9994375960120786,
+        "stable_across_scales": false,
+        "stability_spread": 0.20764466739147025,
+        "sample_count": 8
+      }
+    },
+    {
+      "iteration": 4,
+      "svg_file": "/Users/datsky/Desktop/Fractal-Approximation-Erosion-Simulation/output/dim/dimension_iter_4.svg",
+      "points_count": 2466305,
+      "render_points_count": 1800,
+      "length_km": 21591.14993399908,
+      "relative_to_model_base": 3.3783377741865683,
+      "relative_to_reference": 3.3783377741865683,
+      "dimension": {
+        "valid": true,
+        "dimension": 1.1591820351274396,
+        "regression_r_squared": 0.9994412482905494,
+        "stable_across_scales": false,
+        "stability_spread": 0.20764466739147025,
+        "sample_count": 8
+      }
+    },
+    {
+      "iteration": 5,
+      "svg_file": "/Users/datsky/Desktop/Fractal-Approximation-Erosion-Simulation/output/dim/dimension_iter_5.svg",
+      "points_count": 9865217,
+      "render_points_count": 1800,
+      "length_km": 28820.495172317707,
+      "relative_to_model_base": 4.509503560904997,
+      "relative_to_reference": 4.509503560904997,
+      "dimension": {
+        "valid": true,
+        "dimension": 1.1591820351274396,
+        "regression_r_squared": 0.9994412482905494,
+        "stable_across_scales": false,
+        "stability_spread": 0.20764466739147025,
+        "sample_count": 8
+      }
+    }
+  ],
+  "highlights": {
+    "long_segments": []
+  },
+  "validation": {
+    "fixes": [],
+    "warnings": [],
+    "summary": [
+      {
+        "warning_type": "long_segment",
+        "count": 0,
+        "threshold_km": 450
+      },
+      {
+        "warning_type": "duplicate_location",
+        "count": 0
+      }
+    ],
+    "duplicate_locations": []
+  }
+}

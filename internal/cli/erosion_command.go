@@ -17,12 +17,13 @@ func runErosionCommand(app *App) error {
 	fmt.Println("\tЭРОЗИЯ: МНОГОШАГОВАЯ СИМУЛЯЦИЯ")
 	fmt.Println(strings.Repeat("=", 80))
 	fmt.Printf("Шаги=%d, σ=%.1f м, seed=%d\n\n", steps, strength, seed)
-	fmt.Printf("%-6s %-10s %-12s\n", "Шаг", "Точек", "Длина, км")
-	fmt.Println(strings.Repeat("-", 40))
+	fmt.Printf("%-6s %-10s %-12s %-14s\n", "Шаг", "Точек", "Длина, км", "Площадь, км²")
+	fmt.Println(strings.Repeat("-", 56))
 
 	for i, state := range snapshots {
 		length := geometry.PolylineLength(state)
-		fmt.Printf("%-6d %-10d %-12.0f\n", i, len(state), length)
+		area := geometry.Area(state)
+		fmt.Printf("%-6d %-10d %-12.0f %-14.0f\n", i, len(state), length, area)
 	}
 
 	return writeErosionSVGSeries(app.Base, app.ModelBase, snapshots, steps, strength, seed, app.Config.OutputPath, newExportContext(app))

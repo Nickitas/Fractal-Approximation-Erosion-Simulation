@@ -135,6 +135,7 @@ type erosionStepMetrics struct {
 	Points       int     `json:"points"`
 	RenderPoints int     `json:"render_points"`
 	LengthKM     float64 `json:"length_km"`
+	AreaKM       float64 `json:"area_km2"`
 }
 
 type erosionSeriesArtifactMetrics struct {

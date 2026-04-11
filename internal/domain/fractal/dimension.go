@@ -13,7 +13,15 @@ const (
 	maxLocalSlopeSpread   = 0.18
 )
 
-var defaultScaleFactors = []float64{4, 8, 16, 32, 64, 128, 256, 512}
+// denser grid to reduce sensitivity to scale selection
+var defaultScaleFactors = []float64{4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256}
+
+var gridOffsets = [][2]float64{
+	{0, 0},
+	{0.5, 0},
+	{0, 0.5},
+	{0.5, 0.5},
+}
 
 type Point2D struct{ X, Y float64 }
 
@@ -70,7 +78,7 @@ func AnalyzeBoxCounting(points []geometry.LatLon) BoxCountingAnalysis {
 		if boxSize <= 0 {
 			continue
 		}
-		boxes := boxesCoveredMeters(meters, boxSize, minX, minY)
+		boxes := boxesCoveredMetersAverage(meters, boxSize, minX, minY, gridOffsets)
 		if boxes <= 1 {
 			continue
 		}
@@ -80,9 +88,9 @@ func AnalyzeBoxCounting(points []geometry.LatLon) BoxCountingAnalysis {
 			ScaleFactor:   factor,
 			RelativeScale: relativeScale,
 			BoxSizeMeters: boxSize,
-			BoxesCovered:  boxes,
+			BoxesCovered:  int(math.Round(boxes)),
 			LogInvScale:   math.Log(1.0 / relativeScale),
-			LogBoxes:      math.Log(float64(boxes)),
+			LogBoxes:      math.Log(boxes),
 		}
 
 		samples = append(samples, sample)
@@ -94,26 +102,29 @@ func AnalyzeBoxCounting(points []geometry.LatLon) BoxCountingAnalysis {
 		return BoxCountingAnalysis{Samples: samples}
 	}
 
-	slope, intercept := linearRegression(logInvScale, logBoxes)
-	rSquared := regressionRSquared(logInvScale, logBoxes, slope, intercept)
-	localDimensions := localSlopeSeries(logInvScale, logBoxes)
+	window := bestRegressionWindow(logInvScale, logBoxes)
+	if window == nil || window.length < minScaleSamples {
+		return BoxCountingAnalysis{Samples: samples}
+	}
+
+	localDimensions := localSlopeSeries(window.x, window.y)
 	spread := valueSpread(localDimensions)
 	stable := len(localDimensions) >= minStableLocalSlopes &&
-		rSquared >= minRegressionRSquared &&
+		window.rSquared >= minRegressionRSquared &&
 		spread <= maxLocalSlopeSpread
 
-	if slope < 0.5 || slope > 3.0 {
+	if window.slope < 0.5 || window.slope > 3.0 {
 		return BoxCountingAnalysis{
 			Samples:            samples,
 			LocalDimensions:    localDimensions,
-			RegressionRSquared: rSquared,
+			RegressionRSquared: window.rSquared,
 			StabilitySpread:    spread,
 		}
 	}
 
 	return BoxCountingAnalysis{
-		Dimension:          slope,
-		RegressionRSquared: rSquared,
+		Dimension:          window.slope,
+		RegressionRSquared: window.rSquared,
 		StableAcrossScales: stable,
 		StabilitySpread:    spread,
 		Samples:            samples,
@@ -158,15 +169,24 @@ func bboxMeters(points []Point2D) (minX, maxX, minY, maxY float64) {
 	return
 }
 
-func boxesCoveredMeters(points []Point2D, boxSize, minX, minY float64) int {
-	covered := make(map[[2]int]struct{})
-	for i := 1; i < len(points); i++ {
-		markSegmentBoxes(covered, points[i-1], points[i], boxSize, minX, minY)
+func boxesCoveredMetersAverage(points []Point2D, boxSize, minX, minY float64, offsets [][2]float64) float64 {
+	if len(offsets) == 0 {
+		offsets = [][2]float64{{0, 0}}
 	}
-	return len(covered)
+
+	sum := 0.0
+	for _, off := range offsets {
+		covered := make(map[[2]int]struct{})
+		for i := 1; i < len(points); i++ {
+			markSegmentBoxesOffset(covered, points[i-1], points[i], boxSize, minX, minY, off[0], off[1])
+		}
+		sum += float64(len(covered))
+	}
+
+	return sum / float64(len(offsets))
 }
 
-func markSegmentBoxes(covered map[[2]int]struct{}, a, b Point2D, boxSize, minX, minY float64) {
+func markSegmentBoxesOffset(covered map[[2]int]struct{}, a, b Point2D, boxSize, minX, minY, offsetX, offsetY float64) {
 	dx := b.X - a.X
 	dy := b.Y - a.Y
 	distance := math.Hypot(dx, dy)
@@ -182,10 +202,92 @@ func markSegmentBoxes(covered map[[2]int]struct{}, a, b Point2D, boxSize, minX, 
 		t := float64(i) / float64(steps)
 		x := a.X + dx*t
 		y := a.Y + dy*t
-		row := int(math.Floor((y - minY) / boxSize))
-		col := int(math.Floor((x - minX) / boxSize))
+		row := int(math.Floor((y - minY + offsetY*boxSize) / boxSize))
+		col := int(math.Floor((x - minX + offsetX*boxSize) / boxSize))
 		covered[[2]int{row, col}] = struct{}{}
 	}
+}
+
+type regressionWindow struct {
+	start     int
+	end       int
+	length    int
+	slope     float64
+	intercept float64
+	rSquared  float64
+	spread    float64
+	x         []float64
+	y         []float64
+}
+
+func bestRegressionWindow(x, y []float64) *regressionWindow {
+	n := len(x)
+	if n < minScaleSamples || len(y) != n {
+		return nil
+	}
+
+	var best *regressionWindow
+	for start := 0; start <= n-minScaleSamples; start++ {
+		for end := start + minScaleSamples - 1; end < n; end++ {
+			xs := x[start : end+1]
+			ys := y[start : end+1]
+			slope, intercept := linearRegression(xs, ys)
+			r2 := regressionRSquared(xs, ys, slope, intercept)
+			locals := localSlopeSeries(xs, ys)
+			spread := valueSpread(locals)
+			stable := len(locals) >= minStableLocalSlopes && r2 >= minRegressionRSquared && spread <= maxLocalSlopeSpread
+
+			candidate := &regressionWindow{
+				start:     start,
+				end:       end,
+				length:    end - start + 1,
+				slope:     slope,
+				intercept: intercept,
+				rSquared:  r2,
+				spread:    spread,
+				x:         xs,
+				y:         ys,
+			}
+
+			if betterWindow(best, candidate, stable) {
+				best = candidate
+			}
+		}
+	}
+
+	return best
+}
+
+func betterWindow(current, candidate *regressionWindow, candidateStable bool) bool {
+	if candidate == nil {
+		return false
+	}
+	if current == nil {
+		return true
+	}
+
+	currentStable := current.rSquared >= minRegressionRSquared && current.spread <= maxLocalSlopeSpread && current.length >= minScaleSamples
+
+	// Prefer stable windows
+	if candidateStable != currentStable {
+		return candidateStable
+	}
+	// Prefer longer windows
+	if candidate.length != current.length {
+		return candidate.length > current.length
+	}
+	// Then higher R^2
+	if math.Abs(candidate.rSquared-current.rSquared) > 1e-9 {
+		return candidate.rSquared > current.rSquared
+	}
+	// If R^2 close, prefer higher slope (captures finer detail)
+	if math.Abs(candidate.rSquared-current.rSquared) <= 1e-3 {
+		if math.Abs(candidate.slope-current.slope) > 1e-6 {
+			return candidate.slope > current.slope
+		}
+	}
+	// Then lower spread
+	return candidate.spread < current.spread
 }
 
 func localSlopeSeries(x, y []float64) []float64 {

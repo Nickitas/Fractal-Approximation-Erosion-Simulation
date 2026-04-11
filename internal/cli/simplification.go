@@ -18,7 +18,15 @@ type geometryViews struct {
 	ProcessInfo []string
 }
 
+var currentConfig config
+
+func setCurrentConfig(cfg config) {
+	currentConfig = cfg
+}
+
 func prepareGeometryViews(points []geometry.LatLon, command string, iterations int) geometryViews {
+	cfg := currentConfig // set via setter before prepareGeometryViews is called
+
 	views := geometryViews{
 		RenderBase: points,
 		ModelBase:  points,
@@ -38,16 +46,23 @@ func prepareGeometryViews(points []geometry.LatLon, command string, iterations i
 	}
 
 	if commandUsesModelBase(command) {
-		target := modelBaseTargetPoints(iterations)
-		modelResult := geometry.SimplifyPolyline(points, geometry.SimplifyOptions{MaxPoints: target})
-		views.ModelBase = modelResult.Points
-		if modelResult.Applied {
-			views.ProcessInfo = append(views.ProcessInfo, formatSimplificationNote(
-				"synthetic base simplification",
-				points,
-				modelResult.Points,
-				fmt.Sprintf("for model stages (target %d points at iteration budget %d)", target, iterations),
-			))
+		if cfg.DisableSimplify {
+			views.ModelBase = points
+		} else {
+			target := modelBaseTargetPoints(iterations)
+			if cfg.ModelMaxPoints > 0 && cfg.ModelMaxPoints < target {
+				target = cfg.ModelMaxPoints
+			}
+			modelResult := geometry.SimplifyPolyline(points, geometry.SimplifyOptions{MaxPoints: target})
+			views.ModelBase = modelResult.Points
+			if modelResult.Applied {
+				views.ProcessInfo = append(views.ProcessInfo, formatSimplificationNote(
+					"synthetic base simplification",
+					points,
+					modelResult.Points,
+					fmt.Sprintf("for model stages (target %d points at iteration budget %d)", target, iterations),
+				))
+			}
 		}
 	}
 
