@@ -4,9 +4,9 @@
   <rect x="20" y="20" width="1400" height="1046" rx="28" fill="#fcfbf7" stroke="#d6d0c4"/>
   <rect x="1072" y="20" width="304" height="1046" rx="24" fill="#f0ece2" stroke="#d6d0c4"/>
   <g>
-  <text x="56" y="58" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#16324f">Organic Koch — итерация 4</text>
-  <text x="56" y="108" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4f6d7a">Серая пунктирная линия показывает реальную загруженную береговую линию; цветные слои строятся от упрощённой базы модели и</text>
-  <text x="56" y="126" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4f6d7a">упрощены для рендера</text>
+  <text x="56" y="58" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#16324f">Органическая кривая Коха — итерация 4</text>
+  <text x="56" y="108" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4f6d7a">Органическая модель: seed=42, угол ±18°, высота ±25%; серая пунктирная линия — реальная линия, цветные слои — от упрощённой</text>
+  <text x="56" y="126" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4f6d7a">базы</text>
   <text x="56" y="152" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#6b7a87">SVG содержит исходную полилинию, фрактальные итерации, масштаб и длину по слоям.</text>
   </g>
   <g>

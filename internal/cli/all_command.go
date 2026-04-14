@@ -14,12 +14,20 @@ func runAllCommand(app *App) error {
 	}
 
 	runParadoxCommand(app)
-	runKochOrganicMetrics(app.ModelBase, app.Config.Iterations, organicKochOptions(app))
 
-	if err := writeOrganicKochSVGSeries(app.Base, app.ModelBase, app.Config.Iterations, app.Config.OutputPath, organicKochOptions(app), app.Config.ErosionStrength, "koch_iter", "koch-organic", false, newExportContext(app)); err != nil {
+	// Классическая фрактальная аппроксимация (Koch)
+	if err := writeKochSVGSeries(app.Base, app.ModelBase, app.Config.Iterations, app.Config.OutputPath, app.Config.ErosionStrength, app.Config.Seed, newExportContext(app)); err != nil {
 		return err
 	}
-	if err := writeOrganicKochSVGSeries(app.Base, app.ModelBase, app.Config.Iterations, app.Config.OutputPath, organicKochOptions(app), app.Config.ErosionStrength, "dimension_iter", "dimension-organic", true, newExportContext(app)); err != nil {
+
+	// Органическая фрактальная модель
+	runKochOrganicMetrics(app.ModelBase, app.Config.Iterations, organicKochOptions(app))
+	if err := writeOrganicKochSVGSeries(app.Base, app.ModelBase, app.Config.Iterations, app.Config.OutputPath, organicKochOptions(app), app.Config.ErosionStrength, "koch-organic_iter", "koch-organic", false, newExportContext(app)); err != nil {
+		return err
+	}
+
+	// Анализ фрактальной размерности органической модели
+	if err := writeOrganicKochSVGSeries(app.Base, app.ModelBase, app.Config.Iterations, app.Config.OutputPath, organicKochOptions(app), app.Config.ErosionStrength, "dimension-organic_iter", "dimension-organic", true, newExportContext(app)); err != nil {
 		return err
 	}
 

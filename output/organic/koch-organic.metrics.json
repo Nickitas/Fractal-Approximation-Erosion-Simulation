@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-04-11T13:06:12Z",
+  "generated_at": "2026-04-14T21:21:28Z",
   "command": "model koch-organic",
   "dataset": "Black Sea",
   "source": "data/cache/black-sea.geojson (cached copy of https://geo.vliz.be/geoserver/MarineRegions/wfs?cql_filter=mrgid%3D3319\u0026outputFormat=application%2Fjson\u0026request=GetFeature\u0026service=WFS\u0026typeName=iho\u0026version=1.0.0)",
-  "title": "Organic Koch",
+  "title": "Органическая кривая Коха",
   "output_dir": "/Users/datsky/Desktop/Fractal-Approximation-Erosion-Simulation/output/organic",
   "reference_coastline": {
     "points_count": 9635,
