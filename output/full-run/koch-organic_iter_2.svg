@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1136" viewBox="0 0 1440 1136">
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="980" viewBox="0 0 1440 980">
   <rect width="100%" height="100%" fill="#f7f4ea"/>
-  <rect x="20" y="20" width="1400" height="1096" rx="28" fill="#fcfbf7" stroke="#d6d0c4"/>
-  <rect x="1072" y="20" width="304" height="1096" rx="24" fill="#f0ece2" stroke="#d6d0c4"/>
+  <rect x="20" y="20" width="1400" height="940" rx="28" fill="#fcfbf7" stroke="#d6d0c4"/>
+  <rect x="1072" y="20" width="304" height="940" rx="24" fill="#f0ece2" stroke="#d6d0c4"/>
   <g>
-  <text x="56" y="58" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#16324f">Organic Koch — итерация 2</text>
-  <text x="56" y="108" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4f6d7a">Серая пунктирная линия показывает реальную загруженную береговую линию; цветные слои строятся от упрощённой базы модели и</text>
-  <text x="56" y="126" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4f6d7a">упрощены для рендера</text>
+  <text x="56" y="58" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#16324f">Органическая кривая Коха — итерация 2</text>
+  <text x="56" y="108" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4f6d7a">Органическая модель: seed=42, угол ±18°, высота ±25%; серая пунктирная линия — реальная линия, цветные слои — от упрощённой</text>
+  <text x="56" y="126" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4f6d7a">базы</text>
   <text x="56" y="152" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#6b7a87">SVG содержит исходную полилинию, фрактальные итерации, масштаб и длину по слоям.</text>
   </g>
   <g>
@@ -50,63 +50,39 @@
     <text x="1342" y="566" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#3f6b4b">0</text>
   </g>
   <g>
-    <rect x="1092" y="596" width="264" height="118" rx="18" fill="#fcfbf7" stroke="#d6d0c4"/>
+    <rect x="1092" y="596" width="264" height="126" rx="18" fill="#fcfbf7" stroke="#d6d0c4"/>
     <text x="1106" y="616" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#16324f">Длина по итерациям</text>
     <line x1="1106" y1="627" x2="1122" y2="627" stroke="#1f6f8b" stroke-width="2.2"/>
     <text x="1128" y="631" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#4f6d7a">Измерено</text>
     <line x1="1106" y1="640.00" x2="1342" y2="640.00" stroke="#ddd6c8" stroke-width="1"/>
-    <line x1="1106" y1="666.00" x2="1342" y2="666.00" stroke="#ddd6c8" stroke-width="1"/>
-    <line x1="1106" y1="692.00" x2="1342" y2="692.00" stroke="#ddd6c8" stroke-width="1"/>
-    <line x1="1106" y1="692" x2="1342" y2="692" stroke="#8a9aa6" stroke-width="1.4"/>
+    <line x1="1106" y1="670.00" x2="1342" y2="670.00" stroke="#ddd6c8" stroke-width="1"/>
+    <line x1="1106" y1="700.00" x2="1342" y2="700.00" stroke="#ddd6c8" stroke-width="1"/>
+    <line x1="1106" y1="700" x2="1342" y2="700" stroke="#8a9aa6" stroke-width="1.4"/>
     <text x="1106" y="634" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">10563</text>
-    <text x="1106" y="706" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">4947</text>
-    <text x="1106" y="704" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">0</text>
-    <text x="1342" y="704" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">2</text>
-    <polyline fill="none" stroke="#1f6f8b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="1106.00,688.41 1224.00,667.95 1342.00,643.59"/>
-    <circle cx="1106.00" cy="688.41" r="2.8" fill="#1f6f8b"/>
-    <circle cx="1224.00" cy="667.95" r="2.8" fill="#1f6f8b"/>
-    <circle cx="1342.00" cy="643.59" r="2.8" fill="#1f6f8b"/>
-    <rect x="1092" y="732" width="264" height="118" rx="18" fill="#fcfbf7" stroke="#d6d0c4"/>
-    <text x="1106" y="752" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#16324f">Размерность D</text>
-    <line x1="1106" y1="763" x2="1122" y2="763" stroke="#8b3f5c" stroke-width="2.2"/>
-    <text x="1128" y="767" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#4f6d7a">Оценка</text>
-    <line x1="1204" y1="763" x2="1220" y2="763" stroke="#6f5f1f" stroke-width="2.2" stroke-dasharray="5 4"/>
-    <text x="1226" y="767" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#4f6d7a">Теория</text>
-    <line x1="1106" y1="776.00" x2="1342" y2="776.00" stroke="#ddd6c8" stroke-width="1"/>
-    <line x1="1106" y1="802.00" x2="1342" y2="802.00" stroke="#ddd6c8" stroke-width="1"/>
-    <line x1="1106" y1="828.00" x2="1342" y2="828.00" stroke="#ddd6c8" stroke-width="1"/>
-    <line x1="1106" y1="828" x2="1342" y2="828" stroke="#8a9aa6" stroke-width="1.4"/>
-    <text x="1106" y="770" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">1.273</text>
-    <text x="1106" y="842" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">1.105</text>
-    <text x="1106" y="840" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">0</text>
-    <text x="1342" y="840" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">2</text>
-    <polyline fill="none" stroke="#8b3f5c" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="1106.00,824.41 1224.00,801.96 1342.00,789.11"/>
-    <circle cx="1106.00" cy="824.41" r="2.8" fill="#8b3f5c"/>
-    <circle cx="1224.00" cy="801.96" r="2.8" fill="#8b3f5c"/>
-    <circle cx="1342.00" cy="789.11" r="2.8" fill="#8b3f5c"/>
-    <polyline fill="none" stroke="#6f5f1f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5 4" points="1106.00,779.59 1224.00,779.59 1342.00,779.59"/>
-    <circle cx="1106.00" cy="779.59" r="2.8" fill="#6f5f1f"/>
-    <circle cx="1224.00" cy="779.59" r="2.8" fill="#6f5f1f"/>
-    <circle cx="1342.00" cy="779.59" r="2.8" fill="#6f5f1f"/>
+    <text x="1106" y="714" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">4947</text>
+    <text x="1106" y="712" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">0</text>
+    <text x="1342" y="712" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7a87">2</text>
+    <polyline fill="none" stroke="#1f6f8b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="1106.00,695.86 1224.00,672.25 1342.00,644.14"/>
+    <circle cx="1106.00" cy="695.86" r="2.8" fill="#1f6f8b"/>
+    <circle cx="1224.00" cy="672.25" r="2.8" fill="#1f6f8b"/>
+    <circle cx="1342.00" cy="644.14" r="2.8" fill="#1f6f8b"/>
   </g>
   <g>
   </g>
   <g>
-    <rect x="1092" y="894" width="264" height="186" rx="18" fill="#f8f6ef" stroke="#d6d0c4"/>
-    <text x="1106" y="914" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#16324f">Сводка</text>
-    <text x="1106" y="936" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">Реальная линия: 6391 км, 9635 т.</text>
-    <line x1="1106" y1="956" x2="1342" y2="956" stroke="#e7e1d5" stroke-width="1"/>
-    <text x="1106" y="964" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">База модели: 5334 км, 391 т.</text>
-    <text x="1106" y="980" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">(-16.5% к реальной)</text>
-    <line x1="1106" y1="1000" x2="1342" y2="1000" stroke="#e7e1d5" stroke-width="1"/>
-    <text x="1106" y="1008" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">Текущий слой: 10175 км, 6241 т.</text>
-    <text x="1106" y="1024" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">расчёт / 1800 т. SVG</text>
-    <line x1="1106" y1="1044" x2="1342" y2="1044" stroke="#e7e1d5" stroke-width="1"/>
-    <text x="1106" y="1052" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">D: 1.23100, R²=1.0000, стаб=true</text>
+    <rect x="1092" y="766" width="264" height="158" rx="18" fill="#f8f6ef" stroke="#d6d0c4"/>
+    <text x="1106" y="786" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#16324f">Сводка</text>
+    <text x="1106" y="808" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">Реальная линия: 6391 км, 9635 т.</text>
+    <line x1="1106" y1="828" x2="1342" y2="828" stroke="#e7e1d5" stroke-width="1"/>
+    <text x="1106" y="836" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">База модели: 5334 км, 391 т.</text>
+    <text x="1106" y="852" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">(-16.5% к реальной)</text>
+    <line x1="1106" y1="872" x2="1342" y2="872" stroke="#e7e1d5" stroke-width="1"/>
+    <text x="1106" y="880" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">Текущий слой: 10175 км, 6241 т.</text>
+    <text x="1106" y="896" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#4f6d7a">расчёт / 1800 т. SVG</text>
   </g>
   <g>
-    <line x1="56" y1="1038" x2="479" y2="1038" stroke="#16324f" stroke-width="3"/>
-    <line x1="56" y1="1031" x2="56" y2="1045" stroke="#16324f" stroke-width="6"/>
-    <line x1="479" y1="1031" x2="479" y2="1045" stroke="#16324f" stroke-width="6"/>
-    <text x="56" y="1024" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#16324f">Масштаб ≈ 500 км</text>  </g>
+    <line x1="56" y1="882" x2="479" y2="882" stroke="#16324f" stroke-width="3"/>
+    <line x1="56" y1="875" x2="56" y2="889" stroke="#16324f" stroke-width="6"/>
+    <line x1="479" y1="875" x2="479" y2="889" stroke="#16324f" stroke-width="6"/>
+    <text x="56" y="868" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#16324f">Масштаб ≈ 500 км</text>  </g>
 </svg>

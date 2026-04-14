@@ -175,10 +175,10 @@ go run ./cmd/fraes --help
 ./fraes model koch --iterations 4 --output ./output/koch
 
 # 3. Синтетическая organic-модель от той же базовой полилинии
-./fraes model koch-organic --iterations 4 --seed 42 --angle-jitter 18 --height-jitter 0.25 --output ./output/koch-organic
+./fraes model koch-organic --iterations 4 --seed 42 --angle-jitter 18 --height-jitter 0.25 --output ./output/organic
 
 # 4. Эмпирическая размерность синтетической organic-модели с усреднением по сеткам
-./fraes model dimension --iterations 6 --seed 42 --angle-jitter 18 --height-jitter 0.25 --input data/black-sea.json
+./fraes model dimension --iterations 6 --seed 42 --angle-jitter 18 --height-jitter 0.25 --input data/black-sea.json --output ./output/dim
 
 # 5. Полный сценарий: сначала реальные метрики, затем демонстрации
 ./fraes all --output ./output/full-run
@@ -229,27 +229,27 @@ go run ./cmd/fraes --help
 
 **Итерация 0** — базовая полилиния:
 
-![Koch Iteration 0](output/full-run/koch_iter_0.svg)
+![Koch Iteration 0](output/koch/koch_iter_0.svg)
 
 **Итерация 1:**
 
-![Koch Iteration 1](output/full-run/koch_iter_1.svg)
+![Koch Iteration 1](output/koch/koch_iter_1.svg)
 
 **Итерация 2:**
 
-![Koch Iteration 2](output/full-run/koch_iter_2.svg)
+![Koch Iteration 2](output/koch/koch_iter_2.svg)
 
 **Итерация 3:**
 
-![Koch Iteration 3](output/full-run/koch_iter_3.svg)
+![Koch Iteration 3](output/koch/koch_iter_3.svg)
 
 **Итерация 4:**
 
-![Koch Iteration 4](output/full-run/koch_iter_4.svg)
+![Koch Iteration 4](output/koch/koch_iter_4.svg)
 
 **Итерация 5:**
 
-![Koch Iteration 5](output/full-run/koch_iter_5.svg)
+![Koch Iteration 5](output/koch/koch_iter_5.svg)
 
 **Наблюдение:** С каждой итерацией длина береговой линии растёт — демонстрация парадокса береговой линии.
 
@@ -304,42 +304,6 @@ go run ./cmd/fraes --help
 ![Dimension 5](output/dim/dimension_iter_5.svg)
 
 **Наблюдение:** С каждой итерацией оценка D приближается к теоретическому значению Коха (~1.2619).
-
----
-
-### 5. Полный сценарий: реальные метрики + все демонстрации
-
-Команда: `./fraes all --output ./output/full-run`
-
-Результат полного прогона включает:
-
-| Файл | Описание |
-|------|----------|
-| `coastline.svg` | Исходная береговая линия с метриками |
-| `koch_iter_*.svg` | 6 итераций классической Коха |
-| `koch-organic.metrics.json` | Метрики органической модели |
-| `dimension_iter_*.svg` | 6 итераций анализа размерности |
-| `dimension-organic.metrics.json` | Диагностика box-counting |
-
-**Полная серия итераций Коха (0-5):**
-
-![Koch Full 0](output/full-run/koch_iter_0.svg)
-![Koch Full 1](output/full-run/koch_iter_1.svg)
-![Koch Full 2](output/full-run/koch_iter_2.svg)
-![Koch Full 3](output/full-run/koch_iter_3.svg)
-![Koch Full 4](output/full-run/koch_iter_4.svg)
-![Koch Full 5](output/full-run/koch_iter_5.svg)
-
-**Полная серия анализа размерности (0-5):**
-
-![Dim Full 0](output/full-run/dimension_iter_0.svg)
-![Dim Full 1](output/full-run/dimension_iter_1.svg)
-![Dim Full 2](output/full-run/dimension_iter_2.svg)
-![Dim Full 3](output/full-run/dimension_iter_3.svg)
-![Dim Full 4](output/full-run/dimension_iter_4.svg)
-![Dim Full 5](output/full-run/dimension_iter_5.svg)
-
----
 
 ---
 

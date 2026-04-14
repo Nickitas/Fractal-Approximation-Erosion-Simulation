@@ -118,8 +118,12 @@ func writeKochSVGSeries(originalBase, modelBase []geometry.LatLon, iterations in
 }
 
 func writeOrganicKochSVGSeries(originalBase, modelBase []geometry.LatLon, iterations int, output string, opts koch.OrganicOptions, erosionStrength float64, prefix, metricsBaseName string, includeDimension bool, ctx exportContext) error {
+	title := "Органическая кривая Коха"
+	if includeDimension {
+		title = "Фрактальная размерность (органическая модель)"
+	}
 	return writeFractalSeries(fractalSeriesOptions{
-		Title:            "Organic Koch",
+		Title:            title,
 		Prefix:           prefix,
 		MetricsBaseName:  metricsBaseName,
 		Iterations:       iterations,
@@ -315,9 +319,15 @@ func writeFractalSeries(opts fractalSeriesOptions, output string, ctx exportCont
 			meta = append(meta, fmt.Sprintf("Эрозия: σ=%.0f м, seed=%d", opts.ErosionStrength, opts.ErosionSeed))
 		}
 
+		subtitle := "Серая пунктирная линия показывает реальную загруженную береговую линию; цветные слои строятся от упрощённой базы модели и упрощены для рендера"
+		if opts.OrganicOptions != nil {
+			subtitle = fmt.Sprintf("Органическая модель: seed=%d, угол ±%.0f°, высота ±%.0f%%; серая пунктирная линия — реальная линия, цветные слои — от упрощённой базы",
+				opts.OrganicOptions.Seed, opts.OrganicOptions.AngleJitterDeg, opts.OrganicOptions.HeightJitterPct*100)
+		}
+
 		if err := svgrender.DrawDocument(svgrender.Document{
 			Title:     fmt.Sprintf("%s — итерация %d", opts.Title, iter),
-			Subtitle:  "Серая пунктирная линия показывает реальную загруженную береговую линию; цветные слои строятся от упрощённой базы модели и упрощены для рендера",
+			Subtitle:  subtitle,
 			Layers:    layers,
 			StatCards: makeValidationStatCards(ctx.Validation, validationSummary),
 			Charts:    charts,
